@@ -1,5 +1,5 @@
-# xxx
+# vite-react-state
 
 ```
-pnpm add xxx
+pnpm add vite-react-state
 ```
