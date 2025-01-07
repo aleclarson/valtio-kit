@@ -1,0 +1,10 @@
+{
+  "include": ["./"],
+  "compilerOptions": {
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "target": "esnext",
+    "lib": ["esnext"],
+    "types": ["../../types.d.ts"]
+  }
+}

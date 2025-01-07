@@ -1,25 +1,35 @@
-import { effect, effectScope, isRef, reactive, toRaw } from '@vue/reactivity'
-import { isPlainObject, proxied } from 'radashi'
+import {
+  effect,
+  effectScope,
+  isReactive,
+  isRef,
+  isShallow,
+  reactive,
+  shallowReadonly,
+  toRaw,
+  track,
+  TrackOpTypes,
+} from '@vue/reactivity'
+import { isPlainObject } from 'radashi'
 import { Context, createContext, useContext, useEffect, useState } from 'react'
-
-const rawStateKey = Symbol.for('vite-react-state:rawState')
 
 export function createState(create: Function) {
   let Context: Context<any> | null = null
 
-  // Create a proxy that tracks access to the state and automatically updates
+  //  and automatically updates
   // the component upon an observable change.
   function subscribe(state: any) {
-    const accessed = new Set<PropertyKey>()
+    const deps: Dep[] = []
 
     const forceUpdate = useState<any>()[1]
     useEffect(() => {
       let initialized = false
 
       const runner = effect(() => {
-        for (const key of accessed) {
-          state[key]
+        for (const dep of deps) {
+          dep.track()
         }
+        console.log('effect', { initialized })
         if (initialized) {
           forceUpdate({})
         } else {
@@ -32,16 +42,31 @@ export function createState(create: Function) {
       }
     })
 
-    return proxied<PropertyKey, any>(key => {
-      if (key === rawStateKey) {
-        return state
-      }
-      const value = state[key]
-      if (isRef(value)) {
-        accessed.add(key)
-        return value.value
-      }
-      return value
+    return createProxy(state, deps)
+  }
+
+  // Create a proxy that collects dependencies. If a reactive object is
+  // encountered, it will be recursively proxied. Arrays, maps, and sets are not
+  // proxied.
+  function createProxy(state: any, deps: Dep[]) {
+    const shallow = isShallow(state)
+    return new Proxy(state, {
+      get(_, key) {
+        if (key === rawStateKey) {
+          return state
+        }
+        let value = state[key]
+        if (shallow) {
+          deps.push(new Dep(state, key))
+        } else if (isRef(value)) {
+          deps.push(new Dep(state, key))
+          value = value.value
+        }
+        if (isPlainObject(value) && isReactive(value)) {
+          return createProxy(value, deps)
+        }
+        return value
+      },
     })
   }
 
@@ -51,28 +76,29 @@ export function createState(create: Function) {
       return instance && subscribe(instance[rawStateKey])
     }
 
-    const [prevArgs] = useState(() => reactive(args))
+    // Pass in the reactive args. The transformer will rewrite argument
+    // references to use indexed access patterns, so reactivity is preserved.
+    const [[state, scope, reactiveArgs]] = useState(() => {
+      const reactiveArgs = reactive(args)
+      const scope = effectScope()
+
+      let state: any
+      scope.run(() => {
+        state = create(reactiveArgs)
+      })
+
+      return [shallowReadonly(state), scope, reactiveArgs] as const
+    })
 
     // Update the args on each render.
     useEffect(() => {
-      if (args !== toRaw(prevArgs)) {
-        deepAssignArgs(prevArgs, args)
+      if (args !== toRaw(reactiveArgs)) {
+        deepAssignArgs(reactiveArgs, args)
       }
     })
 
-    // Pass in the reactive args. The transformer will rewrite argument
-    // references to use indexed access patterns, so reactivity is preserved.
-    const [[state, scope]] = useState(() => {
-      let state: any
-      const scope = effectScope()
-      scope.run(() => {
-        state = create(prevArgs)
-      })
-      return [reactive(state), scope] as const
-    })
-
     // Dispose of persistent effects when the component unmounts.
-    useEffect(() => () => scope.stop(), [])
+    useEffect(() => scope.stop.bind(scope), [])
 
     return subscribe(state)
   }
@@ -82,6 +108,19 @@ export function createState(create: Function) {
   }
 
   return hook
+}
+
+const rawStateKey = Symbol.for('vite-react-state:rawState')
+
+class Dep {
+  constructor(
+    readonly target: object,
+    readonly key: unknown
+  ) {}
+
+  track() {
+    track(this.target, TrackOpTypes.GET, this.key)
+  }
 }
 
 // Like deepAssign for an array of arguments.

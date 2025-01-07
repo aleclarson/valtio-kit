@@ -7,7 +7,7 @@ import {
 import { isNodeOfTypes } from '@typescript-eslint/utils/ast-utils'
 import MagicString from 'magic-string'
 import path from 'path'
-import { Plugin } from 'vite'
+import { createFilter, FilterPattern, Plugin } from 'vite'
 
 const isBlockScope = isNodeOfTypes([
   T.ForInStatement,
@@ -35,13 +35,25 @@ const vueReactivityFuncs = new Set([
   'markRaw',
 ])
 
-export default function viteReactState(): Plugin {
-  const filter = /\.state\.[jt]s$/
+export type Options = {
+  /**
+   * @default /\.state\.[jt]s$/
+   */
+  include?: FilterPattern
+  exclude?: FilterPattern
+  onTransform?: (code: string, id: string) => void
+}
+
+export default function reactStatePlugin(options: Options = {}): Plugin {
+  const filter = createFilter(
+    options.include ?? /\.state\.[jt]s$/,
+    options.exclude
+  )
 
   return {
     name: 'vite-react-state',
     async transform(code, id) {
-      if (!filter.test(id)) return
+      if (!filter(id)) return
 
       const ast = parse(code, {
         sourceType: 'module',
@@ -81,36 +93,30 @@ export default function viteReactState(): Plugin {
       const imports = new Set<string>()
 
       for (const root of constructors) {
-        const paramsStart =
-          root.params.length > 0
-            ? root.params[0].range[0]
-            : code.indexOf('(', root.range[0]) + 1
-
-        const paramsEnd =
-          root.params.length > 0
-            ? root.params[root.params.length - 1].range[1]
-            : code.indexOf(')', paramsStart)
-
         const renamedParams = new Map<string, string>()
         const computedParams = new Map<string, TSESTree.Expression>()
 
         root.params.forEach((param, index) => {
+          const rename = '$args[' + index + ']'
+
           if (param.type === T.Identifier) {
-            renamedParams.set(param.name, '$args[' + index + ']')
+            renamedParams.set(param.name, rename)
           } else if (param.type === T.AssignmentPattern) {
-            if (param.left.type === T.Identifier) {
-              renamedParams.set(param.left.name, '$args[' + index + ']')
-            } else {
-              unsupportedArgument(param.left, id)
+            if (index === 0) {
+              throwSyntaxError('The first parameter cannot be optional', param)
             }
+            if (param.left.type === T.Identifier) {
+              renamedParams.set(param.left.name, rename)
+            } else {
+              throwUnsupportedArgument(param.left)
+            }
+            computedParams.set(rename, param.right)
           } else if (param.type === T.ObjectPattern) {
             param.properties.forEach(property => {
               if (
                 property.type === T.Property &&
                 property.key.type === T.Identifier
               ) {
-                const rename = '$args[' + index + '].' + property.key.name
-
                 let name: string
                 if (property.value.type === T.Identifier) {
                   name = property.value.name
@@ -118,58 +124,39 @@ export default function viteReactState(): Plugin {
                   if (property.value.left.type === T.Identifier) {
                     name = property.value.left.name
                   } else {
-                    unsupportedArgument(property.value.left, id)
+                    throwUnsupportedArgument(property.value.left)
                   }
-                  computedParams.set(rename, property.value.right)
+                  computedParams.set(
+                    rename + '.' + property.key.name,
+                    property.value.right
+                  )
                 } else {
-                  unsupportedArgument(property.value, id)
+                  throwUnsupportedArgument(property.value)
                 }
-                renamedParams.set(name, rename)
+                renamedParams.set(name, rename + '.' + property.key.name)
               } else {
-                unsupportedArgument(param, id)
+                throwUnsupportedArgument(param)
               }
             })
           } else {
-            unsupportedArgument(param, id)
+            throwUnsupportedArgument(param)
           }
         })
 
-        // Wrap default argument expressions in an effect.
-        if (computedParams.size > 0) {
-          const offset = root.body.range[0] + 1
-
-          result.prependLeft(offset, ` $effect(() => {`)
-          for (const [name, expr] of computedParams) {
-            result.appendLeft(offset, `; if (${name} === undefined) ${name} = `)
-            result.move(...expr.range, offset)
-          }
-          result.appendRight(offset, `})`)
-
-          imports.add('$effect')
-        }
-
-        // Rewrite arguments to a single, reactive array parameter.
-        result.overwrite(paramsStart, paramsEnd, '$args')
-
-        const skipped = new WeakSet<TSESTree.Node>()
+        const nested = new WeakSet<TSESTree.Node>()
         const reactiveVars = new Set<string>()
+        const referencedParams = new Set<string>()
+        const destructuredParams = new Set<string>()
 
         const enter = (
           node: TSESTree.Node,
           parent: TSESTree.Node | undefined
         ) => {
           if (!parent) return
-          if (skipped.has(node)) return
-          if (skipped.has(parent)) {
-            skipped.add(node)
-            return
+          if (nested.has(parent)) {
+            nested.add(node)
           }
-          if (node.type === T.ReturnStatement) {
-            // The createState callback must return an object literal.
-            if (!node.argument || node.argument.type !== T.ObjectExpression) {
-              unsupportedReturn(node, id)
-            }
-          } else if (node.type === T.Identifier) {
+          if (node.type === T.Identifier) {
             if (
               parent.type === T.MemberExpression &&
               node === parent.property
@@ -212,15 +199,40 @@ export default function viteReactState(): Plugin {
 
             // Rewrite parameter names to the reactive array.
             if (rename) {
-              result.overwrite(...node.range, rename)
+              // Check if the reference is within the initializer of a reactive
+              // variable that wasn't declared with the `const` keyword. In this
+              // case, we don't need to rewrite the parameter name, which would
+              // only make step debugging less ergonomic.
+              const variableOrBlock = findParentNode(
+                node,
+                p => p.type === T.VariableDeclarator || isBlockScope(p)
+              )
+              const isReactive =
+                variableOrBlock?.type !== T.VariableDeclarator ||
+                variableOrBlock.parent.kind === 'const'
+
+              if (isReactive) {
+                result.overwrite(...node.range, rename)
+                referencedParams.add(node.name)
+              } else {
+                // Destructure the initial parameter value for a better step
+                // debugging experience.
+                destructuredParams.add(node.name)
+              }
             }
             // Rewrite reactive variables to their value.
             else if (reactiveVars.has(node.name)) {
               result.appendLeft(node.range[1], '.value')
             }
           }
-          // Look for variable declarations.
-          else if (node.type === T.VariableDeclarator) {
+          // The createState callback must return an object literal.
+          else if (node.type === T.ReturnStatement && !nested.has(node)) {
+            if (!node.argument || node.argument.type !== T.ObjectExpression) {
+              throwSyntaxError('You must return an object literal', node)
+            }
+          }
+          // Top-level variables are transformed into refs (usually).
+          else if (node.type === T.VariableDeclarator && !nested.has(node)) {
             if (node.id.type !== T.Identifier) {
               return // Ignore destructuring.
             }
@@ -294,16 +306,61 @@ export default function viteReactState(): Plugin {
               suffix += ')'
             }
 
-            result.prependRight(node.init.range[0], prefix)
-            result.appendLeft(node.init.range[1], suffix)
+            result.prependLeft(node.init.range[0], prefix)
+            result.appendRight(node.init.range[1], suffix)
           }
           // Do not transform anything in a block scope.
           else if (isBlockScope(node)) {
-            skipped.add(node)
+            nested.add(node)
           }
         }
 
         simpleTraverse(root.body, { enter }, true)
+
+        let paramsStart =
+          root.params.length > 0
+            ? root.params[0].range[0]
+            : code.indexOf('(', root.range[0]) + 1
+
+        // Wrap default argument expressions in an effect.
+        if (computedParams.size > 0) {
+          const offset = root.body.range[0] + 1
+
+          result.prependLeft(offset, `\n  $effect(() => {\n`)
+          for (const [name, expr] of computedParams) {
+            result.appendRight(
+              expr.range[0],
+              `    if (${name} === undefined) ${name} = `
+            )
+            result.prependLeft(expr.range[1], ';\n  ')
+            result.move(...expr.range, offset)
+            result.remove(paramsStart, expr.range[0])
+            paramsStart = expr.range[1]
+          }
+          result.appendRight(offset, `});`)
+
+          imports.add('$effect')
+        }
+
+        const paramsEnd =
+          root.params.length > 0
+            ? root.params[root.params.length - 1].range[1]
+            : code.indexOf(')', paramsStart)
+
+        // Rewrite arguments to a single, reactive array parameter.
+        result.remove(paramsStart, paramsEnd)
+        result.prependRight(paramsEnd, '$args')
+
+        if (destructuredParams.size > 0) {
+          const offset = root.body.range[0] + 1
+
+          for (const name of destructuredParams) {
+            result.appendRight(
+              offset,
+              `\n  const ${name} = ${renamedParams.get(name)};`
+            )
+          }
+        }
       }
 
       if (!result.hasChanged()) {
@@ -324,29 +381,25 @@ export default function viteReactState(): Plugin {
         )
       }
 
+      const transformedCode = result.toString()
+      options.onTransform?.(transformedCode, id)
+
       return {
-        code: result.toString(),
+        code: transformedCode,
         map: result.generateMap({ hires: 'boundary' }),
       }
     },
   }
 }
 
-function unsupportedArgument(node: TSESTree.Node, filename: string): never {
-  throw new Error(
-    `[vite-react-state] Unsupported argument type: ${node.type} (at ${nodeLocation(node, filename)})`
-  )
+function throwSyntaxError(message: string, node: TSESTree.Node): never {
+  const error: any = new SyntaxError(message)
+  error.loc = node.loc.start
+  throw error
 }
 
-function unsupportedReturn(node: TSESTree.Node, filename: string): never {
-  throw new Error(
-    `[vite-react-state] Unsupported return type: ${node.type} (at ${nodeLocation(node, filename)})`
-  )
-}
-
-function nodeLocation(node: TSESTree.Node, filename: string) {
-  const { line, column } = node.loc.start
-  return `${filename}:${line}:${column}`
+function throwUnsupportedArgument(node: TSESTree.Node): never {
+  throwSyntaxError(`Unsupported argument syntax: ${node.type}`, node)
 }
 
 function findParentNode(
