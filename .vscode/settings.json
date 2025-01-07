@@ -6,5 +6,6 @@
   "[typescript]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
-  "rewrap.wrappingColumn": 80
+  "rewrap.wrappingColumn": 80,
+  "autoHide.autoHidePanel": false
 }

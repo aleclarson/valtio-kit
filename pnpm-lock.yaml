@@ -14,9 +14,9 @@ importers:
       '@typescript-eslint/utils':
         specifier: ^8.19.1
         version: 8.19.1(eslint@9.17.0)(typescript@5.7.2)
-      '@vue/reactivity':
-        specifier: ^3.5.13
-        version: 3.5.13
+      derive-valtio:
+        specifier: ^0.2.0
+        version: 0.2.0(valtio@2.1.2(@types/react@19.0.3)(react@19.0.0))
       magic-string:
         specifier: ^0.30.17
         version: 0.30.17
@@ -48,6 +48,9 @@ importers:
       typescript:
         specifier: ^5.7.2
         version: 5.7.2
+      valtio:
+        specifier: ^2.1.2
+        version: 2.1.2(@types/react@19.0.3)(react@19.0.0)
       vite:
         specifier: ^6.0.7
         version: 6.0.7(@types/node@22.10.5)
@@ -601,12 +604,6 @@ packages:
   '@vitest/utils@2.1.8':
     resolution: {integrity: sha512-dwSoui6djdwbfFmIgbIjX2ZhIoG7Ex/+xpxyiEgIGzjliY8xGkcpITKTlp6B4MgtGkF2ilvm97cPM96XZaAgcA==}
 
-  '@vue/reactivity@3.5.13':
-    resolution: {integrity: sha512-NaCwtw8o48B9I6L1zl2p41OHo/2Z4wqYGGIK1Khu5T7yxrn+ATOixn/Udn2m+6kZKB/J7cuT9DbWWhRxqixACg==}
-
-  '@vue/shared@3.5.13':
-    resolution: {integrity: sha512-/hnE/qP5ZoGpol0a5mDi45bOd7t3tjYJBjsgCsivow7D48cJeV5l05RD82lPqi7gRiphZM37rnhW1l6ZoCNNnQ==}
-
   acorn-jsx@5.3.2:
     resolution: {integrity: sha512-rq9s+JNhf0IChjtDXxllJ7g41oZk5SlXtp0LHwyA5cejwn7vKmKp4pPri6YEePv2PU65sAsegbXtIinmDFDXgQ==}
     peerDependencies:
@@ -729,6 +726,11 @@ packages:
 
   deep-is@0.1.4:
     resolution: {integrity: sha512-oIPzksmTg4/MriiaYGO+okXDT7ztn/w3Eptv/+gSIdMdKsJo0u4CfYNFJPy+4SKMuCqGw2wxnA+URMg3t8a/bQ==}
+
+  derive-valtio@0.2.0:
+    resolution: {integrity: sha512-6slhaFHtfaL3t5dLYaQt6s4G2xZymhu0Ktdl7OMeVk8+46RgR8ft6FL0Tr4F31W+yPH03nJe1SSP4JFy2hSMRA==}
+    peerDependencies:
+      valtio: '>=2.0.0-rc.0'
 
   eastasianwidth@0.2.0:
     resolution: {integrity: sha512-I88TYZWc9XiYHRQ4/3c5rjjfgkjhLyW2luGIheGERbNQ6OY7yTybanSpDXZa8y7VUP9YmDcYa+eyq4ca7iLqWA==}
@@ -1107,6 +1109,9 @@ packages:
     engines: {node: '>=14'}
     hasBin: true
 
+  proxy-compare@3.0.1:
+    resolution: {integrity: sha512-V9plBAt3qjMlS1+nC8771KNf6oJ12gExvaxnNzN/9yVRLdTv/lc+oJlnSzrdYDAvBfTStPCoiaCOTmTs0adv7Q==}
+
   punycode@2.3.1:
     resolution: {integrity: sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg==}
     engines: {node: '>=6'}
@@ -1296,6 +1301,18 @@ packages:
 
   uri-js@4.4.1:
     resolution: {integrity: sha512-7rKUyy33Q1yc98pQ1DAmLtwX109F7TIfWlW1Ydo8Wl1ii1SeHieeh0HHfPeL2fMXK6z0s8ecKs9frCuLJvndBg==}
+
+  valtio@2.1.2:
+    resolution: {integrity: sha512-fhekN5Rq7dvHULHHBlJeXHrQDl0Jj9GXfNavCm3gkD06crGchaG1nf/J7gSlfZU2wPcRdVS5jBKWHtE2NNz97A==}
+    engines: {node: '>=12.20.0'}
+    peerDependencies:
+      '@types/react': '>=18.0.0'
+      react: '>=18.0.0'
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      react:
+        optional: true
 
   vite-node@2.1.8:
     resolution: {integrity: sha512-uPAwSr57kYjAUux+8E2j0q0Fxpn8M9VoyfGiRI8Kfktz9NcYMCenwY5RnZxnF1WTu3TGiYipirIzacLL3VVGFg==}
@@ -1819,12 +1836,6 @@ snapshots:
       loupe: 3.1.2
       tinyrainbow: 1.2.0
 
-  '@vue/reactivity@3.5.13':
-    dependencies:
-      '@vue/shared': 3.5.13
-
-  '@vue/shared@3.5.13': {}
-
   acorn-jsx@5.3.2(acorn@8.14.0):
     dependencies:
       acorn: 8.14.0
@@ -1924,6 +1935,10 @@ snapshots:
   deep-eql@5.0.2: {}
 
   deep-is@0.1.4: {}
+
+  derive-valtio@0.2.0(valtio@2.1.2(@types/react@19.0.3)(react@19.0.0)):
+    dependencies:
+      valtio: 2.1.2(@types/react@19.0.3)(react@19.0.0)
 
   eastasianwidth@0.2.0: {}
 
@@ -2317,6 +2332,8 @@ snapshots:
 
   prettier@3.4.2: {}
 
+  proxy-compare@3.0.1: {}
+
   punycode@2.3.1: {}
 
   queue-microtask@1.2.3: {}
@@ -2502,6 +2519,13 @@ snapshots:
   uri-js@4.4.1:
     dependencies:
       punycode: 2.3.1
+
+  valtio@2.1.2(@types/react@19.0.3)(react@19.0.0):
+    dependencies:
+      proxy-compare: 3.0.1
+    optionalDependencies:
+      '@types/react': 19.0.3
+      react: 19.0.0
 
   vite-node@2.1.8(@types/node@22.10.5):
     dependencies:

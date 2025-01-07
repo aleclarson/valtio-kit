@@ -41,18 +41,19 @@
     "rimraf": "^6.0.1",
     "tsup": "^8.3.5",
     "typescript": "^5.7.2",
+    "valtio": "^2.1.2",
     "vite": "^6.0.7",
     "vitest": "^2.1.8"
   },
   "dependencies": {
     "@typescript-eslint/typescript-estree": "^8.19.1",
     "@typescript-eslint/utils": "^8.19.1",
-    "@vue/reactivity": "^3.5.13",
+    "derive-valtio": "^0.2.0",
     "magic-string": "^0.30.17"
   },
   "peerDependencies": {
-    "@vue/reactivity": "*",
     "react": "*",
+    "valtio": "*",
     "vite": "*"
   }
 }
