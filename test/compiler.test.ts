@@ -18,22 +18,6 @@ describe('vite-react-state', () => {
     state.nested.a = 2
   })
 
-  test('arguments', async () => {
-    const code = await transform('arguments.ts')
-    expect(code).toMatchInlineSnapshot(`
-      "import { $effect, createState } from '/@fs//path/to/vite-react-state/runtime.js'
-      export const Counter = createState(($args) => {
-        $effect(() => {
-          if ($args[1] === undefined) $args[1] = 1;
-          if ($args[2] === undefined) $args[2] = {};
-          if ($args[3].e === undefined) $args[3].e = 2;
-        });
-        return {};
-      });
-      "
-    `)
-  })
-
   test('let variable', async () => {
     const code = await transform('let-variable.ts')
     expect(code).toMatchInlineSnapshot(`
@@ -73,13 +57,16 @@ describe('vite-react-state', () => {
   test('watch', async () => {
     const code = await transform('watch.ts')
     expect(code).toMatchInlineSnapshot(`
-      "import { $var, createState } from '/@fs//path/to/vite-react-state/runtime.js'
+      "import { $var, $proxy, watch, createState } from '/@fs//path/to/vite-react-state/runtime.js'
       export const Counter = createState(() => {
-        let count = $var(0);
+        let a = $var(0);
+        const b = $proxy({ c: { d: 1 } });
         watch(($get) => {
-          $get(count).value;
-          count.value++;
-          count.value = 1;
+          $get(a).value;
+          a.value++;
+          a.value = 1;
+          $get(b).c.d;
+          b.c.d = 2;
           let innerVar = 1;
         });
         return {};
@@ -106,13 +93,6 @@ async function transform(fixtureId: string, options: Options = {}) {
         },
       }),
     ],
-    environments: {
-      client: {
-        dev: {
-          moduleRunnerTransform: false,
-        },
-      },
-    },
   })
 
   await server.transformRequest('/@fs/' + fixturePath, {

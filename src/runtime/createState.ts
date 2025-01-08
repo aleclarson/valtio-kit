@@ -3,7 +3,6 @@ import { subscribe } from './effects'
 import { ReactiveClass, ReactiveInstance } from './instance'
 import { isProxyVar } from './proxyVar'
 import { EffectScope } from './scope'
-import { deepAssignArgs } from './utils'
 
 export function createState<Factory extends (...args: any[]) => object>(
   create: Factory
@@ -32,14 +31,6 @@ export function createState<Factory extends (...args: any[]) => object>(
       } finally {
         this.scope.deactivate()
       }
-    }
-
-    /**
-     * Patch the instance arguments. This only has an effect if the instance set
-     * up a `watch` or `subscribe` callback during initialization.
-     */
-    update(...args: Parameters<Factory>) {
-      deepAssignArgs(this.args, args)
     }
   }
 }

@@ -1,10 +1,14 @@
 export const Counter = createState(() => {
-  let count = 0
+  let a = 0
+  const b = { c: { d: 1 } }
 
   watch(() => {
-    count // primitive reference
-    count++ // update expression
-    count = 1 // assignment expression
+    a // primitive reference
+    a++ // update expression
+    a = 1 // assignment expression
+
+    b.c.d // property access
+    b.c.d = 2 // assignment expression
 
     // should not be transformed
     let innerVar = 1

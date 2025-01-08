@@ -1,5 +1,5 @@
-import { proxy } from 'valtio'
-import { isProxy } from './utils'
+import { isObject } from 'radashi'
+import { proxy, unstable_getInternalStates } from 'valtio'
 
 const proxyVars = new WeakSet<object>()
 
@@ -10,4 +10,10 @@ export function proxyVar<T>(value: T) {
   const result = proxy({ value })
   proxyVars.add(result)
   return result
+}
+
+const { proxyCache } = unstable_getInternalStates()
+
+function isProxy(value: unknown): value is object {
+  return isObject(value) && proxyCache.has(value)
 }

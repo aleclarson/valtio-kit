@@ -37,6 +37,7 @@
   },
   "devDependencies": {
     "@alloc/prettier-config": "^1.0.0",
+    "@testing-library/react": "^16.1.0",
     "@types/node": "^22.10.5",
     "@types/react": "^19.0.3",
     "its-fine": "^1.2.5",

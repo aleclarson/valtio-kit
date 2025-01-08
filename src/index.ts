@@ -7,9 +7,11 @@ import {
 import { isNodeOfTypes } from '@typescript-eslint/utils/ast-utils'
 import MagicString from 'magic-string'
 import path from 'path'
+import { castArray } from 'radashi'
 import { createFilter, FilterPattern, Plugin } from 'vite'
 
 const isBlockScope = isNodeOfTypes([
+  T.ForStatement,
   T.ForInStatement,
   T.ForOfStatement,
   T.WhileStatement,
@@ -19,6 +21,14 @@ const isBlockScope = isNodeOfTypes([
   T.FunctionExpression,
   T.BlockStatement,
 ])
+
+const globalFunctions = [
+  'watch',
+  'subscribe',
+  'subscribeKey',
+  'addEventListener',
+  'effect',
+]
 
 export type Options = {
   /**
@@ -77,62 +87,27 @@ export default function reactStatePlugin(options: Options = {}): Plugin {
       const imports = new Set<string>()
 
       for (const root of constructors) {
-        const renamedParams = new Map<string, string>()
-        const computedParams = new Map<string, TSESTree.Expression>()
-
-        root.params.forEach((param, index) => {
-          const rename = '$args[' + index + ']'
-
-          if (param.type === T.Identifier) {
-            renamedParams.set(param.name, rename)
-          } else if (param.type === T.AssignmentPattern) {
-            if (index === 0) {
-              throwSyntaxError('The first parameter cannot be optional', param)
-            }
-            if (param.left.type === T.Identifier) {
-              renamedParams.set(param.left.name, rename)
-            } else {
-              throwUnsupportedArgument(param.left)
-            }
-            computedParams.set(rename, param.right)
-          } else if (param.type === T.ObjectPattern) {
-            param.properties.forEach(property => {
-              if (
-                property.type === T.Property &&
-                property.key.type === T.Identifier
-              ) {
-                let name: string
-                if (property.value.type === T.Identifier) {
-                  name = property.value.name
-                } else if (property.value.type === T.AssignmentPattern) {
-                  if (property.value.left.type === T.Identifier) {
-                    name = property.value.left.name
-                  } else {
-                    throwUnsupportedArgument(property.value.left)
-                  }
-                  computedParams.set(
-                    rename + '.' + property.key.name,
-                    property.value.right
-                  )
-                } else {
-                  throwUnsupportedArgument(property.value)
-                }
-                renamedParams.set(name, rename + '.' + property.key.name)
-              } else {
-                throwUnsupportedArgument(param)
-              }
-            })
-          } else {
-            throwUnsupportedArgument(param)
-          }
-        })
-
         const proxyVars = new Set<string>()
         const proxyObjects = new Set<string>()
-        const referencedParams = new Set<string>()
-        const destructuredParams = new Set<string>()
         const watchCallbacks = new Set<TSESTree.Node>()
         const nestedNodes = new WeakSet<TSESTree.Node>()
+        const scopes = new Map<TSESTree.Node, BlockScope>()
+
+        const closestScope = (node: TSESTree.Node) => {
+          const scope = findParentNode(node, isBlockScope)
+          return scope ? scopes.get(scope) : undefined
+        }
+
+        const isGlobalCallTo = (
+          node: TSESTree.CallExpression,
+          name: string
+        ) => {
+          if (!hasCalleeNamed(node, name)) {
+            return false
+          }
+          const scope = closestScope(node)
+          return !!scope && !findBindingFromScope(name, scope)
+        }
 
         const isBeingWatched = (
           node: TSESTree.Identifier,
@@ -150,11 +125,12 @@ export default function reactStatePlugin(options: Options = {}): Plugin {
           node: TSESTree.Node,
           parent: TSESTree.Node | undefined
         ) => {
-          if (!parent) return
-          if (nestedNodes.has(parent)) {
+          if (parent && nestedNodes.has(parent)) {
             nestedNodes.add(node)
           }
           if (node.type === T.Identifier) {
+            if (!parent) return
+
             if (
               parent.type === T.MemberExpression &&
               node === parent.property
@@ -169,63 +145,40 @@ export default function reactStatePlugin(options: Options = {}): Plugin {
             }
 
             if (parent.type === T.Property) {
-              const objectParent = parent.parent.parent
+              const objectLiteral = parent.parent
               if (
-                objectParent.type === T.ReturnStatement &&
-                objectParent.parent === root.body
+                objectLiteral.parent.type === T.ReturnStatement &&
+                objectLiteral.parent.parent === root.body
               ) {
                 // Allow $var objects to be returned, where createState can
                 // subscribe to them.
                 return
               }
-            }
-
-            if (parent.type === T.Property && node === parent.key) {
-              if (node !== parent.value) {
-                // Ignore property names.
-                return
-              }
-
-              // Handle shorthand property definitions.
-              let name = renamedParams.get(node.name)
-              if (name) {
-                if (isBeingWatched(node, root)) {
-                  name = name.replace('$args', '$get($args)')
-                }
-                result.appendLeft(node.range[1], ': ' + name)
-              } else if (proxyVars.has(node.name)) {
-                let name = node.name
-                if (isBeingWatched(node, root)) {
-                  name = '$get(' + name + ')'
-                }
-                result.appendLeft(node.range[1], ': ' + node.name + '.value')
-              }
-              return
-            }
-
-            // Rewrite parameter names to the reactive array.
-            let name = renamedParams.get(node.name)
-            if (name) {
-              if (isBeingWatched(node, root)) {
-                name = name.replace('$args', '$get($args)')
-              } else {
-                const blockScope = findParentNode(node, isBlockScope)!
-                if (blockScope === root.body) {
-                  destructuredParams.add(node.name)
+              if (node === parent.key) {
+                if (node !== parent.value) {
+                  // Ignore property names.
                   return
                 }
+                // Handle shorthand property definitions.
+                if (proxyVars.has(node.name)) {
+                  let name = node.name
+                  if (isBeingWatched(node, root)) {
+                    name = '$get(' + name + ')'
+                  }
+                  result.appendLeft(node.range[1], ': ' + node.name + '.value')
+                }
+                return
               }
-              result.overwrite(...node.range, name)
-              referencedParams.add(node.name)
             }
+
+            if (isBeingWatched(node, root)) {
+              result.appendLeft(node.range[0], '$get(')
+              result.appendLeft(node.range[1], ')')
+            }
+
             // Rewrite proxied variables to their value.
-            else if (proxyVars.has(node.name)) {
-              if (isBeingWatched(node, root)) {
-                result.appendLeft(node.range[0], '$get(')
-                result.appendLeft(node.range[1], ').value')
-              } else {
-                result.appendLeft(node.range[1], '.value')
-              }
+            if (proxyVars.has(node.name)) {
+              result.appendLeft(node.range[1], '.value')
             }
           }
           // The createState callback must return an object literal.
@@ -304,12 +257,17 @@ export default function reactStatePlugin(options: Options = {}): Plugin {
               result.appendRight(node.init.range[1], suffix)
             }
           }
-          // Find any `watch()` calls.
+          // Add imports for global functions being used.
           else if (node.type === T.CallExpression) {
-            if (hasCalleeNamed(node, 'watch')) {
-              const watchCallback = node.arguments[0]
-
+            const globalFunction = globalFunctions.find(name =>
+              isGlobalCallTo(node, name)
+            )
+            if (globalFunction) {
+              imports.add(globalFunction)
+            }
+            if (globalFunction === 'watch') {
               // Throw if the first argument is not a function.
+              const watchCallback = node.arguments[0]
               if (
                 watchCallback.type !== T.ArrowFunctionExpression &&
                 watchCallback.type !== T.FunctionExpression
@@ -324,54 +282,71 @@ export default function reactStatePlugin(options: Options = {}): Plugin {
               // Track all watch callbacks.
               watchCallbacks.add(watchCallback)
             }
-          }
-          // Mark nested blocks to avoid transforming their variable
-          // declarations.
-          else if (isBlockScope(node)) {
-            nestedNodes.add(node)
+          } else if (isBlockScope(node)) {
+            // Prevent variables in nested blocks from being transformed.
+            if (parent) {
+              nestedNodes.add(node)
+            }
+
+            // Find parent scope.
+            const parentBlock = findParentNode(node, isBlockScope)
+
+            // Collect all variables/parameters in the block.
+            const scope: BlockScope = {
+              names: [],
+              parent: parentBlock ? scopes.get(parentBlock) : undefined,
+            }
+            scopes.set(node, scope)
+
+            const block = node
+            switch (block.type) {
+              case T.ArrowFunctionExpression:
+              case T.FunctionExpression:
+              case T.FunctionDeclaration:
+                for (const param of block.params) {
+                  trackBindingPattern(param, scope)
+                }
+              /* fallthrough */
+              case T.WhileStatement:
+              case T.DoWhileStatement:
+                trackImmediateBindings(
+                  block.body.type === T.BlockStatement
+                    ? block.body.body
+                    : castArray(block.body),
+                  scope
+                )
+                break
+              case T.ForStatement:
+                // Track loop variable
+                if (block.init?.type === T.VariableDeclaration) {
+                  for (const decl of block.init.declarations) {
+                    trackBindingPattern(decl.id, scope)
+                  }
+                }
+                if (block.body.type === T.BlockStatement) {
+                  trackImmediateBindings(block.body.body, scope)
+                }
+                break
+              case T.ForInStatement:
+              case T.ForOfStatement:
+                // Track loop variable
+                if (block.left.type === T.VariableDeclaration) {
+                  for (const decl of block.left.declarations) {
+                    trackBindingPattern(decl.id, scope)
+                  }
+                }
+                if (block.body.type === T.BlockStatement) {
+                  trackImmediateBindings(block.body.body, scope)
+                }
+                break
+              case T.BlockStatement:
+                trackImmediateBindings(block.body, scope)
+                break
+            }
           }
         }
 
         simpleTraverse(root.body, { enter }, true)
-
-        const paramsRange = getParametersRange(root, code)
-
-        // Wrap default argument expressions in an effect.
-        if (computedParams.size > 0) {
-          const offset = root.body.range[0] + 1
-
-          result.prependLeft(offset, `\n  $effect(() => {\n`)
-          for (const [name, expr] of computedParams) {
-            result.appendRight(
-              expr.range[0],
-              `    if (${name} === undefined) ${name} = `
-            )
-            result.prependLeft(expr.range[1], ';\n')
-            result.move(...expr.range, offset)
-            result.remove(paramsRange[0], expr.range[0])
-            paramsRange[0] = expr.range[1]
-          }
-          result.appendRight(offset, `  });`)
-
-          imports.add('$effect')
-        }
-
-        // Rewrite arguments to a single, reactive array parameter.
-        if (root.params.length > 0) {
-          result.remove(...paramsRange)
-          result.prependRight(paramsRange[1], '$args')
-
-          if (destructuredParams.size > 0) {
-            const offset = root.body.range[0] + 1
-
-            for (const name of destructuredParams) {
-              result.appendRight(
-                offset,
-                `\n  const ${name} = ${renamedParams.get(name)};`
-              )
-            }
-          }
-        }
       }
 
       if (!result.hasChanged()) {
@@ -407,10 +382,6 @@ function throwSyntaxError(message: string, node: TSESTree.Node): never {
   const error: any = new SyntaxError(message)
   error.loc = node.loc.start
   throw error
-}
-
-function throwUnsupportedArgument(node: TSESTree.Node): never {
-  throwSyntaxError(`Unsupported argument syntax: ${node.type}`, node)
 }
 
 function findParentNode(
@@ -460,11 +431,66 @@ function isBeingAssigned(node: TSESTree.Identifier, root?: TSESTree.Node) {
     root
   ) as TSESTree.AssignmentExpression | TSESTree.UpdateExpression | undefined
 
+  let ident: TSESTree.Node = node
+  while (ident.parent.type === T.MemberExpression) {
+    ident = ident.parent
+  }
+
   return Boolean(
     assignment &&
       ((assignment.type === T.AssignmentExpression &&
-        node === assignment.left) ||
+        ident === assignment.left) ||
         (assignment.type === T.UpdateExpression &&
-          node === assignment.argument))
+          ident === assignment.argument))
   )
+}
+
+type BlockScope = {
+  names: string[]
+  parent: BlockScope | undefined
+}
+
+function trackBindingPattern(
+  node: TSESTree.Parameter | TSESTree.DestructuringPattern,
+  scope: BlockScope
+) {
+  if (node.type === T.Identifier) {
+    scope.names.push(node.name)
+  } else if (node.type === T.RestElement) {
+    trackBindingPattern(node.argument, scope)
+  } else if (node.type === T.ArrayPattern) {
+    for (const element of node.elements) {
+      element && trackBindingPattern(element, scope)
+    }
+  } else if (node.type === T.ObjectPattern) {
+    for (const property of node.properties) {
+      if (property.type === T.RestElement) {
+        trackBindingPattern(property.argument, scope)
+      } else if (property.key.type === T.Identifier) {
+        trackBindingPattern(property.key, scope)
+      }
+    }
+  } else if (node.type === T.AssignmentPattern) {
+    trackBindingPattern(node.left, scope)
+  }
+}
+
+function trackImmediateBindings(body: TSESTree.Node[], scope: BlockScope) {
+  for (const node of body) {
+    if (node.type === T.VariableDeclaration) {
+      for (const decl of node.declarations) {
+        trackBindingPattern(decl.id, scope)
+      }
+    }
+  }
+}
+
+function findBindingFromScope(name: string, scope: BlockScope | undefined) {
+  while (scope) {
+    if (scope.names.includes(name)) {
+      return true
+    }
+    scope = scope.parent
+  }
+  return false
 }

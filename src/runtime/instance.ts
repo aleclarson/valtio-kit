@@ -2,7 +2,6 @@ import { isClass, isFunction } from 'radashi'
 import { useEffect, useMemo, useRef } from 'react'
 import { Snapshot, useSnapshot } from 'valtio'
 import { EffectScope } from './scope'
-import { toRaw } from './utils'
 
 /**
  * Represents an instance of a `createState` factory.
@@ -13,7 +12,6 @@ export abstract class ReactiveInstance<
   declare protected data: ReturnType<Factory>
   declare protected args: Parameters<Factory>
   declare protected scope: EffectScope
-  abstract update(...args: Parameters<Factory>): void
 }
 
 export interface ReactiveClass<Factory extends (...args: any[]) => object> {
@@ -88,9 +86,6 @@ export function useInstance(
 
     useEffect(() => {
       instanceRef.current = instance
-      if (instance && factoryArgs !== toRaw(instance['args'])) {
-        instance.update(...factoryArgs)
-      }
     })
 
     useEffect(() => {
