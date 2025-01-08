@@ -1,104 +1,89 @@
-import { isClass, isFunction } from 'radashi'
+import { isClass } from 'radashi'
 import { useEffect, useMemo, useRef } from 'react'
-import { Snapshot, useSnapshot } from 'valtio'
+import { EffectScope } from './scope'
 
 /**
- * Represents an instance of a `createState` factory.
+ * The class extended by all reactive instances.
  */
-export abstract class ReactiveInstance<
-  Factory extends (...args: any[]) => object,
-> {
-  declare protected $args: Parameters<Factory>
-  declare protected $data: ReturnType<Factory>
+export abstract class ReactiveInstance<T extends object> {
+  declare protected $data: T
 }
 
-export type ReactiveProxy<Factory extends (...args: any[]) => object> =
-  ReactiveInstance<Factory> & Snapshot<ReturnType<Factory>>
+/**
+ * A reactive object returned by a `createState` factory.
+ */
+export type ReactiveProxy<T extends object> = ReactiveInstance<T> & T
 
+/**
+ * A class for creating reactive instances with a specific factory.
+ */
 export interface ReactiveClass<Factory extends (...args: any[]) => object> {
-  new (...args: Parameters<Factory>): ReactiveInstance<Factory>
+  new (...args: Parameters<Factory>): ReactiveInstance<ReturnType<Factory>>
 }
-
-/**
- * Use an immutable snapshot of the instance's data.
- */
-export function useInstance<T extends (...args: any[]) => object>(
-  instance: ReactiveInstance<T>
-): Snapshot<ReturnType<T>>
 
 /**
  * Create a new instance of the factory.
  */
-export function useInstance<T extends (...args: any[]) => object>(
-  factory: new (...args: Parameters<T>) => ReactiveInstance<T>,
-  ...args: Parameters<T>
-): ReactiveInstance<T>
+export function useInstance<Factory extends (...args: any[]) => object>(
+  constructor: ReactiveClass<Factory>,
+  ...args: Parameters<Factory>
+): ReactiveProxy<ReturnType<Factory>>
 
 /**
  * Create a new instance of the factory. If you pass null or undefined, the hook
  * will return null.
  */
-export function useInstance<T extends (...args: any[]) => object>(
-  factory:
-    | (new (...args: Parameters<T>) => ReactiveInstance<T>)
-    | null
-    | undefined,
-  ...args: Parameters<T>
-): ReactiveInstance<T> | null
+export function useInstance<Factory extends (...args: any[]) => object>(
+  constructor: ReactiveClass<Factory> | null | undefined,
+  ...args: Parameters<Factory>
+): ReactiveProxy<ReturnType<Factory>> | null
 
 /**
  * Create a new instance, using a dependency array for greater control over when
  * the instance should be re-created.
  */
-export function useInstance<T extends (...args: any[]) => object>(
-  factory: () => ReactiveInstance<T>,
+export function useInstance<Factory extends (...args: any[]) => object>(
+  create: () => ReactiveInstance<Factory>,
   deps: readonly any[]
-): ReactiveInstance<T>
+): ReactiveProxy<ReturnType<Factory>>
 
 /**
  * Create a new instance, using a dependency array for greater control over when
  * the instance should be re-created.
  */
-export function useInstance<T extends (...args: any[]) => object>(
-  factory: () => ReactiveInstance<T> | null,
+export function useInstance<Factory extends (...args: any[]) => object>(
+  create: () => ReactiveInstance<Factory> | null,
   deps: readonly any[]
-): ReactiveInstance<T> | null
+): ReactiveProxy<ReturnType<Factory>> | null
 
 export function useInstance(
-  arg1:
-    | ReactiveInstance<any>
+  fn:
+    | ReactiveClass<any>
     | (() => ReactiveInstance<any> | null)
-    | (new (...args: any[]) => ReactiveInstance<any>)
     | null
     | undefined,
-  ...factoryArgs: any[]
+  ...args: any[]
 ) {
-  if (!arg1 || isFunction(arg1)) {
+  let instance: ReactiveInstance<any> | null
+  if (!fn || isClass(fn)) {
     const instanceRef = useRef<ReactiveInstance<any> | null>(null)
-
-    let instance: ReactiveInstance<any> | null
-    if (!arg1) {
-      instance = null
-    } else if (isClass(arg1)) {
-      instance = new arg1(...factoryArgs)
-    } else {
-      instance = useMemo(arg1, factoryArgs[0] as readonly any[])
-    }
-
+    instance = fn ? (instanceRef.current ?? new fn(...args)) : null
     useEffect(() => {
       instanceRef.current = instance
     })
-
-    useEffect(() => {
-      if (!instance) return
-      instance['scope'].mount()
-      return () => {
-        instance['scope'].unmount()
-      }
-    }, [instance])
-
-    return instance
+  } else {
+    instance = useMemo(fn, args[0] as readonly any[])
   }
 
-  return useSnapshot(arg1['data'])
+  useEffect(() => {
+    if (instance) {
+      const scope = EffectScope.get(instance)!
+      scope.mount()
+      return () => {
+        scope.unmount()
+      }
+    }
+  }, [instance])
+
+  return instance
 }

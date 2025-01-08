@@ -6,6 +6,7 @@ import {
 } from '@typescript-eslint/typescript-estree'
 import { isNodeOfTypes } from '@typescript-eslint/utils/ast-utils'
 import MagicString from 'magic-string'
+import { isAbsolute } from 'path'
 import { castArray } from 'radashi'
 import { createFilter, FilterPattern, Plugin } from 'vite'
 
@@ -371,19 +372,12 @@ export default function reactStatePlugin(options: Options = {}): Plugin {
 
         simpleTraverse(root.body, { enter }, true)
 
-        // Object literals are wrapped with `unnest(…)` except for the topmost
-        // object literal, which is handled by createState.
+        // Object literals are wrapped with `$unnest(…)` if they contain at
+        // least one $atom(…) object.
         for (const objectLiteral of objectsContainingAtoms) {
-          const propertyOrReturn = findParentNode(
-            objectLiteral,
-            parent =>
-              parent.type === T.Property || parent.type === T.ReturnStatement
-          )
-          if (propertyOrReturn?.type === T.Property) {
-            imports.add('$unnest')
-            result.appendLeft(objectLiteral.range[0], '$unnest(')
-            result.appendLeft(objectLiteral.range[1], ')')
-          }
+          imports.add('$unnest')
+          result.appendLeft(objectLiteral.range[0], '$unnest(')
+          result.appendLeft(objectLiteral.range[1], ')')
         }
       }
 
@@ -394,12 +388,16 @@ export default function reactStatePlugin(options: Options = {}): Plugin {
       imports.add('createState')
 
       if (imports.size > 0) {
-        const runtimePath =
+        let runtimePath =
           options.runtimePath ??
           new URL('./runtime.js', import.meta.url).pathname
 
+        if (isAbsolute(runtimePath)) {
+          runtimePath = `/@fs/${runtimePath}`
+        }
+
         result.prepend(
-          `import { ${Array.from(imports).join(', ')} } from '/@fs/${runtimePath}'\n`
+          `import { ${Array.from(imports).join(', ')} } from '${runtimePath}'\n`
         )
       }
 

@@ -1,22 +1,29 @@
 import { proxy } from 'valtio'
-import { unnest } from './atom'
 import { ReactiveClass, ReactiveInstance } from './instance'
 import { EffectScope } from './scope'
 
 export function createState<Factory extends (...args: any[]) => object>(
   create: Factory
 ): ReactiveClass<Factory> {
-  return class extends ReactiveInstance<Factory> {
+  return class extends ReactiveInstance<ReturnType<Factory>> {
     constructor(...args: Parameters<Factory>) {
       super()
-      const instance = proxy(this)
-      const scope = new EffectScope(instance)
+      const scope = new EffectScope()
       scope.activate()
       try {
-        return unnest(Object.assign(instance, create(...args)))
+        const self = proxy(copyDescriptors(this, create(...args)))
+        EffectScope.set(self, scope)
+        return self
       } finally {
         scope.deactivate()
       }
     }
   }
+}
+
+function copyDescriptors<T extends object>(target: T, source: object): T {
+  return Object.defineProperties(
+    target,
+    Object.getOwnPropertyDescriptors(source)
+  )
 }

@@ -8,10 +8,6 @@ export class EffectScope {
   constructors: ((scope: EffectScope) => Cleanup)[] = []
   destructors: Cleanup[] = []
 
-  constructor(object: object) {
-    scopes.set(object, this)
-  }
-
   add(constructor: (scope: EffectScope) => Cleanup) {
     this.constructors.push(constructor)
   }
@@ -37,5 +33,9 @@ export class EffectScope {
 
   static get(object: object) {
     return scopes.get(object)
+  }
+
+  static set(object: object, scope: EffectScope) {
+    scopes.set(object, scope)
   }
 }

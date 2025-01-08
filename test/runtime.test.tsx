@@ -4,7 +4,8 @@ import fs from 'fs'
 import path from 'path'
 import { dedent } from 'radashi'
 import spawn from 'tinyspawn'
-import { ReactiveClass, useInstance } from '../src/react.js'
+import { useSnapshot } from 'valtio'
+import { ReactiveClass, useInstance } from 'vite-react-state/react'
 
 describe('createState', () => {
   test('basic flow', async () => {
@@ -19,6 +20,7 @@ describe('createState', () => {
         return {
           count,
           increment() {
+            console.log('increment')
             count++
           },
         }
@@ -26,7 +28,8 @@ describe('createState', () => {
     `)
 
     function App() {
-      const counter = useInstance(useInstance(Counter, 1))
+      const counter = useSnapshot(useInstance(Counter, 1))
+      console.log('render')
 
       return (
         <div>
@@ -57,9 +60,7 @@ async function load<T extends Record<string, any>>(code: string) {
     configFile,
     dedent/* ts */ `
       import { defineConfig } from 'vite'
-      import reactStatePlugin from '../../../dist/index.js'
-
-      console.log('wat up')
+      import reactStatePlugin from 'vite-react-state'
 
       export default defineConfig({
         root: new URL('.', import.meta.url).pathname,
@@ -70,14 +71,13 @@ async function load<T extends Record<string, any>>(code: string) {
             formats: ['es'],
           },
           rollupOptions: {
-            external: ['valtio', 'react'],
+            external: ['vite-react-state/runtime'],
           },
           minify: false,
         },
         plugins: [
           reactStatePlugin({
-            runtimePath: new URL('../../../src/runtime/index.ts', import.meta.url)
-              .pathname,
+            runtimePath: 'vite-react-state/runtime',
           }),
         ],
       })

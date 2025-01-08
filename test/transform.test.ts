@@ -61,7 +61,7 @@ describe('vite-react-state', () => {
       export const Counter = createState(() => {
         let a = $atom(0);
         const b = $proxy({ a: a.value });
-        return {
+        return $unnest({
           a,
           b,
           c: $unnest({
@@ -77,7 +77,7 @@ describe('vite-react-state', () => {
           },
           array: [a.value, b],
           staticObject: { a: 1 }
-        };
+        });
       });
       "
     `)

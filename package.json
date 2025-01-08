@@ -41,7 +41,6 @@
     "@testing-library/react": "^16.1.0",
     "@types/node": "^22.10.5",
     "@types/react": "^19.0.3",
-    "its-fine": "^1.2.5",
     "jsdom": "^25.0.1",
     "prettier": "^3.4.2",
     "radashi": "^12.3.0",
@@ -52,6 +51,7 @@
     "typescript": "^5.7.2",
     "valtio": "^2.1.2",
     "vite": "^6.0.7",
+    "vite-react-state": "link:",
     "vitest": "^2.1.8"
   },
   "dependencies": {
@@ -60,7 +60,6 @@
     "magic-string": "^0.30.17"
   },
   "peerDependencies": {
-    "its-fine": "*",
     "react": "*",
     "valtio": "*",
     "vite": "*"
