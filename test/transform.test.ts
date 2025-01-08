@@ -1,23 +1,9 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { proxy } from 'valtio'
-import { watch } from 'valtio/utils'
 import { createServer } from 'vite'
 import reactStatePlugin, { Options } from '../src/index.js'
 
 describe('vite-react-state', () => {
-  test('valtio testing', () => {
-    const state = proxy({
-      nested: { a: 1 },
-    })
-
-    watch(get => {
-      console.log(get(state).nested.a)
-    })
-
-    state.nested.a = 2
-  })
-
   test('let variable', async () => {
     const code = await transform('let-variable.ts')
     expect(code).toMatchInlineSnapshot(`
@@ -61,7 +47,7 @@ describe('vite-react-state', () => {
       export const Counter = createState(() => {
         let a = $atom(0);
         const b = $proxy({ a: a.value });
-        return $unnest({
+        return {
           a,
           b,
           c: $unnest({
@@ -77,7 +63,7 @@ describe('vite-react-state', () => {
           },
           array: [a.value, b],
           staticObject: { a: 1 }
-        });
+        };
       });
       "
     `)

@@ -1,4 +1,5 @@
 import { proxy } from 'valtio'
+import { subscribe } from './effects'
 
 const atoms = new WeakSet<object>()
 
@@ -16,17 +17,18 @@ const isAtom = (value: unknown): value is { value: unknown } =>
  * atom's value instead of the atom object itself.
  */
 export function unnest(data: any) {
+  data = proxy(data)
   Reflect.ownKeys(data).forEach(key => {
     const descriptor = Reflect.getOwnPropertyDescriptor(data, key)!
     if (
-      descriptor.configurable &&
+      descriptor.writable &&
       'value' in descriptor &&
       isAtom(descriptor.value)
     ) {
-      Object.defineProperty(data, key, {
-        enumerable: descriptor.enumerable,
-        configurable: descriptor.configurable,
-        get: Reflect.get.bind(Reflect, descriptor.value, 'value'),
+      const atom = descriptor.value
+      data[key] = atom.value
+      subscribe(atom, () => {
+        data[key] = atom.value
       })
     }
   })

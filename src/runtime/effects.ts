@@ -43,7 +43,7 @@ export function subscribeKey<T extends object, K extends keyof T>(
  * Event listeners added with this function are automatically cleaned up when
  * the associated state instance is destroyed.
  */
-export const addEventListener: AddEventListener = (
+export const on: AddEventListener = (
   target: EventTarget,
   event: string,
   callback: (event: any) => any,

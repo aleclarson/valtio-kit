@@ -23,11 +23,15 @@ const isBlockScope = isNodeOfTypes([
 ])
 
 const globalFunctions = [
-  'watch',
+  'computed',
+  'getVersion',
+  'on',
+  'onMount',
+  'ref',
+  'snapshot',
   'subscribe',
   'subscribeKey',
-  'addEventListener',
-  'effect',
+  'watch',
 ]
 
 export type Options = {
@@ -91,7 +95,7 @@ export default function reactStatePlugin(options: Options = {}): Plugin {
 
       for (const root of constructors) {
         const atoms = new Set<string>()
-        const proxyObjects = new Set<string>()
+        const proxies = new Set<string>()
         const objectsContainingAtoms = new Set<TSESTree.Node>()
         const watchCallbacks = new Set<TSESTree.Node>()
         const nestedNodes = new WeakSet<TSESTree.Node>()
@@ -192,7 +196,10 @@ export default function reactStatePlugin(options: Options = {}): Plugin {
               }
             }
 
-            if (isBeingWatched(node, root)) {
+            if (
+              (atoms.has(node.name) || proxies.has(node.name)) &&
+              isBeingWatched(node, root)
+            ) {
               result.appendLeft(node.range[0], '$get(')
               result.appendLeft(node.range[1], ')')
             }
@@ -222,10 +229,26 @@ export default function reactStatePlugin(options: Options = {}): Plugin {
 
             if (proxyFunc) {
               imports.add(proxyFunc)
+
               // Remove the 'new' keyword.
               result.remove(node.range[0], node.callee.range[0])
+
               // Overwrite the callee with the proxy function.
               result.overwrite(...node.callee.range, proxyFunc)
+
+              const variableDeclarator = findParentNode(
+                node,
+                parent => parent.type === T.VariableDeclarator,
+                root
+              ) as TSESTree.VariableDeclarator | undefined
+
+              if (
+                variableDeclarator &&
+                variableDeclarator.id.type === T.Identifier &&
+                variableDeclarator.init === node
+              ) {
+                proxies.add(variableDeclarator.id.name)
+              }
             }
           }
           // Top-level variables are transformed into refs (usually).
@@ -267,7 +290,7 @@ export default function reactStatePlugin(options: Options = {}): Plugin {
               node.init.type === T.ObjectExpression ||
               node.init.type === T.ArrayExpression
             ) {
-              proxyObjects.add(node.id.name)
+              proxies.add(node.id.name)
               imports.add('$proxy')
               prefix = '$proxy('
               suffix = ')'
@@ -286,7 +309,7 @@ export default function reactStatePlugin(options: Options = {}): Plugin {
             if (globalFunction) {
               imports.add(globalFunction)
             }
-            if (globalFunction === 'watch') {
+            if (globalFunction === 'watch' || globalFunction === 'computed') {
               // Throw if the first argument is not a function.
               const watchCallback = node.arguments[0]
               if (
@@ -302,6 +325,30 @@ export default function reactStatePlugin(options: Options = {}): Plugin {
 
               // Track all watch callbacks.
               watchCallbacks.add(watchCallback)
+
+              // Treat computed variables as atoms.
+              if (globalFunction === 'computed') {
+                const variableDeclarator =
+                  node.parent.type === T.VariableDeclarator
+                    ? node.parent
+                    : undefined
+
+                if (!variableDeclarator) {
+                  throwSyntaxError(
+                    "Cannot use computed(…) outside of a const variable's initializer",
+                    node
+                  )
+                }
+                if (variableDeclarator.parent.kind !== 'const') {
+                  throwSyntaxError(
+                    `Expected 'const' keyword in computed variable declaration`,
+                    variableDeclarator.parent
+                  )
+                }
+                if (variableDeclarator.id.type === T.Identifier) {
+                  atoms.add(variableDeclarator.id.name)
+                }
+              }
             }
           }
           // Scope tracking
@@ -372,12 +419,19 @@ export default function reactStatePlugin(options: Options = {}): Plugin {
 
         simpleTraverse(root.body, { enter }, true)
 
-        // Object literals are wrapped with `$unnest(…)` if they contain at
-        // least one $atom(…) object.
+        // Object literals are wrapped with `unnest(…)` except for the topmost
+        // object literal, which is handled by createState.
         for (const objectLiteral of objectsContainingAtoms) {
-          imports.add('$unnest')
-          result.appendLeft(objectLiteral.range[0], '$unnest(')
-          result.appendLeft(objectLiteral.range[1], ')')
+          const propertyOrReturn = findParentNode(
+            objectLiteral,
+            parent =>
+              parent.type === T.Property || parent.type === T.ReturnStatement
+          )
+          if (propertyOrReturn?.type === T.Property) {
+            imports.add('$unnest')
+            result.appendLeft(objectLiteral.range[0], '$unnest(')
+            result.appendLeft(objectLiteral.range[1], ')')
+          }
         }
       }
 

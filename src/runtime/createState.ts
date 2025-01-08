@@ -1,9 +1,9 @@
-import { proxy } from 'valtio'
+import { unnest } from './atom'
 import { ReactiveClass, ReactiveInstance } from './instance'
 import { EffectScope } from './scope'
 
 export function createState<Factory extends (...args: any[]) => object>(
-  create: Factory
+  factory: Factory
 ): ReactiveClass<Factory> {
   return class extends ReactiveInstance<ReturnType<Factory>> {
     constructor(...args: Parameters<Factory>) {
@@ -11,7 +11,7 @@ export function createState<Factory extends (...args: any[]) => object>(
       const scope = new EffectScope()
       scope.activate()
       try {
-        const self = proxy(copyDescriptors(this, create(...args)))
+        const self = unnest(copyDescriptors(this, factory(...args)))
         EffectScope.set(self, scope)
         return self
       } finally {
