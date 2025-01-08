@@ -1,16 +1,12 @@
-import { Context } from 'react'
+import * as runtime from './dist/runtime'
 
 declare global {
-  const createState: <T extends (...args: any[]) => object>(
-    factory: T
-  ) => {
-    /** Create an instance of this state hook. */
-    (...args: Parameters<T>): Readonly<ReturnType<T>>
-
-    /** Get the current state from the nearest context provider. */
-    (): Readonly<ReturnType<T>>
-
-    /** Create a context provider for this state hook. */
-    createContext: () => Context<Readonly<ReturnType<T>>>
-  }
+  const createState: typeof runtime.createState
+  const watch: typeof runtime.watch
+  const onMount: typeof runtime.onMount
+  const subscribe: typeof runtime.subscribe
+  const subscribeKey: typeof runtime.subscribeKey
+  const addEventListener: typeof runtime.addEventListener
 }
+
+export {}

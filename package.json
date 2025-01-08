@@ -7,9 +7,13 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
-    "./reactivity": {
-      "types": "./dist/reactivity.d.ts",
-      "default": "./dist/reactivity.js"
+    "./react": {
+      "types": "./dist/react.d.ts",
+      "default": "./dist/react.js"
+    },
+    "./runtime": {
+      "types": "./dist/runtime.d.ts",
+      "default": "./dist/runtime.js"
     },
     "./types": {
       "types": "./types.d.ts"
@@ -35,6 +39,7 @@
     "@alloc/prettier-config": "^1.0.0",
     "@types/node": "^22.10.5",
     "@types/react": "^19.0.3",
+    "its-fine": "^1.2.5",
     "prettier": "^3.4.2",
     "radashi": "^12.3.0",
     "react": "^19.0.0",
@@ -48,10 +53,10 @@
   "dependencies": {
     "@typescript-eslint/typescript-estree": "^8.19.1",
     "@typescript-eslint/utils": "^8.19.1",
-    "derive-valtio": "^0.2.0",
     "magic-string": "^0.30.17"
   },
   "peerDependencies": {
+    "its-fine": "*",
     "react": "*",
     "valtio": "*",
     "vite": "*"

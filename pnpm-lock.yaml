@@ -14,9 +14,6 @@ importers:
       '@typescript-eslint/utils':
         specifier: ^8.19.1
         version: 8.19.1(eslint@9.17.0)(typescript@5.7.2)
-      derive-valtio:
-        specifier: ^0.2.0
-        version: 0.2.0(valtio@2.1.2(@types/react@19.0.3)(react@19.0.0))
       magic-string:
         specifier: ^0.30.17
         version: 0.30.17
@@ -30,6 +27,9 @@ importers:
       '@types/react':
         specifier: ^19.0.3
         version: 19.0.3
+      its-fine:
+        specifier: ^1.2.5
+        version: 1.2.5(@types/react@19.0.3)(react@19.0.0)
       prettier:
         specifier: ^3.4.2
         version: 3.4.2
@@ -547,6 +547,11 @@ packages:
   '@types/node@22.10.5':
     resolution: {integrity: sha512-F8Q+SeGimwOo86fiovQh8qiXfFEh2/ocYv7tU5pJ3EXMSSxk1Joj5wefpFK2fHTf/N6HKGSxIDBT9f3gCxXPkQ==}
 
+  '@types/react-reconciler@0.28.9':
+    resolution: {integrity: sha512-HHM3nxyUZ3zAylX8ZEyrDNd2XZOnQ0D5XfunJF5FLQnZbHHYq4UWvW1QfelQNXv1ICNkwYhfxjwfnqivYB6bFg==}
+    peerDependencies:
+      '@types/react': '*'
+
   '@types/react@19.0.3':
     resolution: {integrity: sha512-UavfHguIjnnuq9O67uXfgy/h3SRJbidAYvNjLceB+2RIKVRBzVsh0QO+Pw6BCSQqFS9xwzKfwstXx0m6AbAREA==}
 
@@ -726,11 +731,6 @@ packages:
 
   deep-is@0.1.4:
     resolution: {integrity: sha512-oIPzksmTg4/MriiaYGO+okXDT7ztn/w3Eptv/+gSIdMdKsJo0u4CfYNFJPy+4SKMuCqGw2wxnA+URMg3t8a/bQ==}
-
-  derive-valtio@0.2.0:
-    resolution: {integrity: sha512-6slhaFHtfaL3t5dLYaQt6s4G2xZymhu0Ktdl7OMeVk8+46RgR8ft6FL0Tr4F31W+yPH03nJe1SSP4JFy2hSMRA==}
-    peerDependencies:
-      valtio: '>=2.0.0-rc.0'
 
   eastasianwidth@0.2.0:
     resolution: {integrity: sha512-I88TYZWc9XiYHRQ4/3c5rjjfgkjhLyW2luGIheGERbNQ6OY7yTybanSpDXZa8y7VUP9YmDcYa+eyq4ca7iLqWA==}
@@ -914,6 +914,11 @@ packages:
 
   isexe@2.0.0:
     resolution: {integrity: sha512-RHxMLp9lnKHGHRng9QFhRCMbYAcVpn69smSGcq3f36xjgVVWThj4qqLbTLlq7Ssj8B+fIQ1EuCEGI2lKsyQeIw==}
+
+  its-fine@1.2.5:
+    resolution: {integrity: sha512-fXtDA0X0t0eBYAGLVM5YsgJGsJ5jEmqZEPrGbzdf5awjv0xE7nqv3TVnvtUF060Tkes15DbDAKW/I48vsb6SyA==}
+    peerDependencies:
+      react: '>=18.0'
 
   jackspeak@3.4.3:
     resolution: {integrity: sha512-OGlZQpz2yfahA/Rd1Y8Cd9SIEsqvXkLVoSw/cgwhnhFMDbsQFeZYoJJ7bIZBS9BcamUW96asq/npPWugM+RQBw==}
@@ -1755,6 +1760,10 @@ snapshots:
     dependencies:
       undici-types: 6.20.0
 
+  '@types/react-reconciler@0.28.9(@types/react@19.0.3)':
+    dependencies:
+      '@types/react': 19.0.3
+
   '@types/react@19.0.3':
     dependencies:
       csstype: 3.1.3
@@ -1935,10 +1944,6 @@ snapshots:
   deep-eql@5.0.2: {}
 
   deep-is@0.1.4: {}
-
-  derive-valtio@0.2.0(valtio@2.1.2(@types/react@19.0.3)(react@19.0.0)):
-    dependencies:
-      valtio: 2.1.2(@types/react@19.0.3)(react@19.0.0)
 
   eastasianwidth@0.2.0: {}
 
@@ -2176,6 +2181,13 @@ snapshots:
   is-number@7.0.0: {}
 
   isexe@2.0.0: {}
+
+  its-fine@1.2.5(@types/react@19.0.3)(react@19.0.0):
+    dependencies:
+      '@types/react-reconciler': 0.28.9(@types/react@19.0.3)
+      react: 19.0.0
+    transitivePeerDependencies:
+      - '@types/react'
 
   jackspeak@3.4.3:
     dependencies:

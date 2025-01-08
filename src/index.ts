@@ -20,21 +20,6 @@ const isBlockScope = isNodeOfTypes([
   T.BlockStatement,
 ])
 
-const collectionTypes = new Set(['Map', 'Set', 'WeakMap', 'WeakSet'])
-const vueReactivityFuncs = new Set([
-  'reactive',
-  'shallowReactive',
-  'ref',
-  'shallowRef',
-  'readonly',
-  'shallowReadonly',
-  'computed',
-  'effect',
-  'effectScope',
-  'customRef',
-  'markRaw',
-])
-
 export type Options = {
   /**
    * @default /\.state\.[jt]s$/
@@ -78,8 +63,7 @@ export default function reactStatePlugin(options: Options = {}): Plugin {
 
         if (
           node.type === T.CallExpression &&
-          node.callee.type === T.Identifier &&
-          node.callee.name === 'createState' &&
+          hasCalleeNamed(node, 'createState') &&
           node.arguments[0].type === T.ArrowFunctionExpression
         ) {
           constructors.push(node.arguments[0])
@@ -143,18 +127,32 @@ export default function reactStatePlugin(options: Options = {}): Plugin {
           }
         })
 
-        const nested = new WeakSet<TSESTree.Node>()
-        const reactiveVars = new Set<string>()
+        const proxyVars = new Set<string>()
+        const proxyObjects = new Set<string>()
         const referencedParams = new Set<string>()
         const destructuredParams = new Set<string>()
+        const watchCallbacks = new Set<TSESTree.Node>()
+        const nestedNodes = new WeakSet<TSESTree.Node>()
+
+        const isBeingWatched = (
+          node: TSESTree.Identifier,
+          root?: TSESTree.Node
+        ) => {
+          const watchCallback = findParentNode(
+            node,
+            parent => watchCallbacks.has(parent),
+            root
+          )
+          return Boolean(watchCallback && !isBeingAssigned(node, watchCallback))
+        }
 
         const enter = (
           node: TSESTree.Node,
           parent: TSESTree.Node | undefined
         ) => {
           if (!parent) return
-          if (nested.has(parent)) {
-            nested.add(node)
+          if (nestedNodes.has(parent)) {
+            nestedNodes.add(node)
           }
           if (node.type === T.Identifier) {
             if (
@@ -176,80 +174,99 @@ export default function reactStatePlugin(options: Options = {}): Plugin {
                 objectParent.type === T.ReturnStatement &&
                 objectParent.parent === root.body
               ) {
-                // Allow reactive variables to be returned.
+                // Allow $var objects to be returned, where createState can
+                // subscribe to them.
                 return
               }
             }
 
-            const rename = renamedParams.get(node.name)
-
             if (parent.type === T.Property && node === parent.key) {
-              if (
-                node === parent.value &&
-                (rename || reactiveVars.has(node.name))
-              ) {
-                result.appendLeft(
-                  node.range[1],
-                  ': ' + (rename ?? node.name + '.value')
-                )
+              if (node !== parent.value) {
+                // Ignore property names.
+                return
               }
-              // Ignore property names.
+
+              // Handle shorthand property definitions.
+              let name = renamedParams.get(node.name)
+              if (name) {
+                if (isBeingWatched(node, root)) {
+                  name = name.replace('$args', '$get($args)')
+                }
+                result.appendLeft(node.range[1], ': ' + name)
+              } else if (proxyVars.has(node.name)) {
+                let name = node.name
+                if (isBeingWatched(node, root)) {
+                  name = '$get(' + name + ')'
+                }
+                result.appendLeft(node.range[1], ': ' + node.name + '.value')
+              }
               return
             }
 
             // Rewrite parameter names to the reactive array.
-            if (rename) {
-              // Check if the reference is within the initializer of a reactive
-              // variable that wasn't declared with the `const` keyword. In this
-              // case, we don't need to rewrite the parameter name, which would
-              // only make step debugging less ergonomic.
-              const variableOrBlock = findParentNode(
-                node,
-                p => p.type === T.VariableDeclarator || isBlockScope(p)
-              )
-              const isReactive =
-                variableOrBlock?.type !== T.VariableDeclarator ||
-                variableOrBlock.parent.kind === 'const'
-
-              if (isReactive) {
-                result.overwrite(...node.range, rename)
-                referencedParams.add(node.name)
+            let name = renamedParams.get(node.name)
+            if (name) {
+              if (isBeingWatched(node, root)) {
+                name = name.replace('$args', '$get($args)')
               } else {
-                // Destructure the initial parameter value for a better step
-                // debugging experience.
-                destructuredParams.add(node.name)
+                const blockScope = findParentNode(node, isBlockScope)!
+                if (blockScope === root.body) {
+                  destructuredParams.add(node.name)
+                  return
+                }
               }
+              result.overwrite(...node.range, name)
+              referencedParams.add(node.name)
             }
-            // Rewrite reactive variables to their value.
-            else if (reactiveVars.has(node.name)) {
-              result.appendLeft(node.range[1], '.value')
+            // Rewrite proxied variables to their value.
+            else if (proxyVars.has(node.name)) {
+              if (isBeingWatched(node, root)) {
+                result.appendLeft(node.range[0], '$get(')
+                result.appendLeft(node.range[1], ').value')
+              } else {
+                result.appendLeft(node.range[1], '.value')
+              }
             }
           }
           // The createState callback must return an object literal.
-          else if (node.type === T.ReturnStatement && !nested.has(node)) {
+          else if (node.type === T.ReturnStatement && !nestedNodes.has(node)) {
             if (!node.argument || node.argument.type !== T.ObjectExpression) {
               throwSyntaxError('You must return an object literal', node)
             }
           }
+          // Any new Map/Set is replaced with proxyMap/proxySet respectively.
+          else if (
+            node.type === T.NewExpression &&
+            node.callee.type === T.Identifier
+          ) {
+            const proxyFunc =
+              node.callee.name === 'Map'
+                ? '$proxyMap'
+                : node.callee.name === 'Set'
+                  ? '$proxySet'
+                  : null
+
+            if (proxyFunc) {
+              imports.add(proxyFunc)
+              // Remove the 'new' keyword.
+              result.remove(node.range[0], node.callee.range[0])
+              // Overwrite the callee with the proxy function.
+              result.overwrite(...node.callee.range, proxyFunc)
+            }
+          }
           // Top-level variables are transformed into refs (usually).
-          else if (node.type === T.VariableDeclarator && !nested.has(node)) {
+          else if (
+            node.type === T.VariableDeclarator &&
+            !nestedNodes.has(node)
+          ) {
             if (node.id.type !== T.Identifier) {
               return // Ignore destructuring.
             }
 
             if (!node.init) {
-              reactiveVars.add(node.id.name)
-              result.appendLeft(node.id.range[1], ` = $shallowRef()`)
-              imports.add('$shallowRef')
-              return
-            }
-
-            if (
-              node.init.type === T.CallExpression &&
-              node.init.callee.type === T.Identifier &&
-              vueReactivityFuncs.has(node.init.callee.name)
-            ) {
-              // Ignore variables using a @vue/reactivity function.
+              proxyVars.add(node.id.name)
+              result.appendLeft(node.id.range[1], ` = $var()`)
+              imports.add('$var')
               return
             }
 
@@ -264,63 +281,60 @@ export default function reactStatePlugin(options: Options = {}): Plugin {
               return
             }
 
-            let deepReactive = false
-            let computed = false
-
-            if (
-              node.init.type === T.ObjectExpression ||
-              node.init.type === T.ArrayExpression ||
-              node.init.type === T.NewExpression
-            ) {
-              // Object literals, array literals, and collections (e.g. Map,
-              // Set, WeakMap, WeakSet) are all deeply reactive.
-              deepReactive =
-                node.init.type !== T.NewExpression ||
-                (node.init.callee.type === T.Identifier &&
-                  collectionTypes.has(node.init.callee.name))
-            }
-            // All other variables are either computed or shallow refs.
-            else if (varKind === 'const') {
-              computed = true
-            }
-
-            if (computed || varKind !== 'const') {
-              reactiveVars.add(node.id.name)
-            }
-
             let prefix = ''
             let suffix = ''
 
-            if (computed) {
-              imports.add('$computed')
-              prefix = '$computed(() => '
+            if (varKind !== 'const') {
+              proxyVars.add(node.id.name)
+              imports.add('$var')
+              prefix = '$var('
               suffix = ')'
-            } else if (varKind === 'let') {
-              imports.add('$shallowRef')
-              prefix = '$shallowRef('
+            } else if (
+              node.init.type === T.ObjectExpression ||
+              node.init.type === T.ArrayExpression
+            ) {
+              proxyObjects.add(node.id.name)
+              imports.add('$proxy')
+              prefix = '$proxy('
               suffix = ')'
-            }
-            if (deepReactive) {
-              imports.add('$reactive')
-              prefix += '$reactive('
-              suffix += ')'
             }
 
-            result.prependLeft(node.init.range[0], prefix)
-            result.appendRight(node.init.range[1], suffix)
+            if (prefix) {
+              result.prependLeft(node.init.range[0], prefix)
+              result.appendRight(node.init.range[1], suffix)
+            }
           }
-          // Do not transform anything in a block scope.
+          // Find any `watch()` calls.
+          else if (node.type === T.CallExpression) {
+            if (hasCalleeNamed(node, 'watch')) {
+              const watchCallback = node.arguments[0]
+
+              // Throw if the first argument is not a function.
+              if (
+                watchCallback.type !== T.ArrowFunctionExpression &&
+                watchCallback.type !== T.FunctionExpression
+              ) {
+                throwSyntaxError('The first argument must be a function', node)
+              }
+
+              // Add a $get parameter to the function.
+              const paramsRange = getParametersRange(watchCallback, code)
+              result.appendLeft(paramsRange[0], '$get')
+
+              // Track all watch callbacks.
+              watchCallbacks.add(watchCallback)
+            }
+          }
+          // Mark nested blocks to avoid transforming their variable
+          // declarations.
           else if (isBlockScope(node)) {
-            nested.add(node)
+            nestedNodes.add(node)
           }
         }
 
         simpleTraverse(root.body, { enter }, true)
 
-        let paramsStart =
-          root.params.length > 0
-            ? root.params[0].range[0]
-            : code.indexOf('(', root.range[0]) + 1
+        const paramsRange = getParametersRange(root, code)
 
         // Wrap default argument expressions in an effect.
         if (computedParams.size > 0) {
@@ -332,33 +346,30 @@ export default function reactStatePlugin(options: Options = {}): Plugin {
               expr.range[0],
               `    if (${name} === undefined) ${name} = `
             )
-            result.prependLeft(expr.range[1], ';\n  ')
+            result.prependLeft(expr.range[1], ';\n')
             result.move(...expr.range, offset)
-            result.remove(paramsStart, expr.range[0])
-            paramsStart = expr.range[1]
+            result.remove(paramsRange[0], expr.range[0])
+            paramsRange[0] = expr.range[1]
           }
-          result.appendRight(offset, `});`)
+          result.appendRight(offset, `  });`)
 
           imports.add('$effect')
         }
 
-        const paramsEnd =
-          root.params.length > 0
-            ? root.params[root.params.length - 1].range[1]
-            : code.indexOf(')', paramsStart)
-
         // Rewrite arguments to a single, reactive array parameter.
-        result.remove(paramsStart, paramsEnd)
-        result.prependRight(paramsEnd, '$args')
+        if (root.params.length > 0) {
+          result.remove(...paramsRange)
+          result.prependRight(paramsRange[1], '$args')
 
-        if (destructuredParams.size > 0) {
-          const offset = root.body.range[0] + 1
+          if (destructuredParams.size > 0) {
+            const offset = root.body.range[0] + 1
 
-          for (const name of destructuredParams) {
-            result.appendRight(
-              offset,
-              `\n  const ${name} = ${renamedParams.get(name)};`
-            )
+            for (const name of destructuredParams) {
+              result.appendRight(
+                offset,
+                `\n  const ${name} = ${renamedParams.get(name)};`
+              )
+            }
           }
         }
       }
@@ -404,13 +415,56 @@ function throwUnsupportedArgument(node: TSESTree.Node): never {
 
 function findParentNode(
   node: TSESTree.Node,
-  test: (node: TSESTree.Node) => boolean
+  filter: (node: TSESTree.Node) => boolean,
+  stopNode?: TSESTree.Node
 ): TSESTree.Node | undefined {
   let parent = node.parent
   while (parent) {
-    if (test(parent)) {
+    if (parent === stopNode) {
+      return undefined
+    }
+    if (filter(parent)) {
       return parent
     }
     parent = parent.parent
   }
+}
+
+function hasCalleeNamed(node: TSESTree.CallExpression, name: string) {
+  return node.callee.type === T.Identifier && node.callee.name === name
+}
+
+function getParametersRange(
+  node: TSESTree.ArrowFunctionExpression | TSESTree.FunctionExpression,
+  code: string
+): TSESTree.Range {
+  const start =
+    node.params.length > 0
+      ? node.params[0].range[0]
+      : code.indexOf('(', node.typeParameters?.range[1] ?? node.range[0]) + 1
+
+  const end =
+    node.params.length > 0
+      ? node.params[node.params.length - 1].range[1]
+      : code.lastIndexOf(')', node.returnType?.range[0] ?? node.body.range[0])
+
+  return [start, end]
+}
+
+function isBeingAssigned(node: TSESTree.Identifier, root?: TSESTree.Node) {
+  const assignment = findParentNode(
+    node,
+    parent =>
+      parent.type === T.AssignmentExpression ||
+      parent.type === T.UpdateExpression,
+    root
+  ) as TSESTree.AssignmentExpression | TSESTree.UpdateExpression | undefined
+
+  return Boolean(
+    assignment &&
+      ((assignment.type === T.AssignmentExpression &&
+        node === assignment.left) ||
+        (assignment.type === T.UpdateExpression &&
+          node === assignment.argument))
+  )
 }

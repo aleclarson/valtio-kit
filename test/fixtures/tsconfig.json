@@ -4,7 +4,7 @@
     "module": "esnext",
     "moduleResolution": "bundler",
     "target": "esnext",
-    "lib": ["esnext"],
+    "lib": ["esnext", "dom"],
     "types": ["../../types.d.ts"]
   }
 }
