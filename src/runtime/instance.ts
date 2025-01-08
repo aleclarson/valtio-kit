@@ -1,7 +1,6 @@
 import { isClass, isFunction } from 'radashi'
 import { useEffect, useMemo, useRef } from 'react'
 import { Snapshot, useSnapshot } from 'valtio'
-import { EffectScope } from './scope'
 
 /**
  * Represents an instance of a `createState` factory.
@@ -9,10 +8,12 @@ import { EffectScope } from './scope'
 export abstract class ReactiveInstance<
   Factory extends (...args: any[]) => object,
 > {
-  declare protected data: ReturnType<Factory>
-  declare protected args: Parameters<Factory>
-  declare protected scope: EffectScope
+  declare protected $args: Parameters<Factory>
+  declare protected $data: ReturnType<Factory>
 }
+
+export type ReactiveProxy<Factory extends (...args: any[]) => object> =
+  ReactiveInstance<Factory> & Snapshot<ReturnType<Factory>>
 
 export interface ReactiveClass<Factory extends (...args: any[]) => object> {
   new (...args: Parameters<Factory>): ReactiveInstance<Factory>

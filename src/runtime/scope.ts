@@ -2,9 +2,19 @@ import { Cleanup } from './effects'
 
 let activeScope: EffectScope | null = null
 
+const scopes = new WeakMap<object, EffectScope>()
+
 export class EffectScope {
-  constructors: ((scope: EffectScope) => void)[] = []
+  constructors: ((scope: EffectScope) => Cleanup)[] = []
   destructors: Cleanup[] = []
+
+  constructor(object: object) {
+    scopes.set(object, this)
+  }
+
+  add(constructor: (scope: EffectScope) => Cleanup) {
+    this.constructors.push(constructor)
+  }
 
   activate() {
     activeScope = this
@@ -14,7 +24,7 @@ export class EffectScope {
   }
 
   mount() {
-    this.constructors.forEach(fn => fn(this))
+    this.constructors.forEach(fn => this.destructors.push(fn(this)))
   }
   unmount() {
     this.destructors.forEach(fn => fn())
@@ -23,5 +33,9 @@ export class EffectScope {
 
   static get current() {
     return activeScope!
+  }
+
+  static get(object: object) {
+    return scopes.get(object)
   }
 }

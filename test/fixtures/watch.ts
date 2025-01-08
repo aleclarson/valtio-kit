@@ -1,6 +1,8 @@
 export const Counter = createState(() => {
   let a = 0
   const b = { c: { d: 1 } }
+  let array = []
+  let map = new Map()
 
   watch(() => {
     a // primitive reference
@@ -9,6 +11,9 @@ export const Counter = createState(() => {
 
     b.c.d // property access
     b.c.d = 2 // assignment expression
+
+    array = [2] // set array variable
+    map = new Map() // set Map variable
 
     // should not be transformed
     let innerVar = 1

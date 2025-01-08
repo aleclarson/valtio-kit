@@ -1,6 +1,6 @@
 export { proxy as $proxy } from 'valtio'
 export { proxyMap as $proxyMap, proxySet as $proxySet } from 'valtio/utils'
-export { proxyVar as $var } from './proxyVar'
+export { atom as $atom, unnest as $unnest } from './atom'
 
 export * from './createState'
 export * from './effects'

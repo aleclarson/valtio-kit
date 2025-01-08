@@ -1,1 +1,5 @@
-export { useInstance } from './runtime/instance'
+export {
+  ReactiveInstance,
+  useInstance,
+  type ReactiveClass,
+} from './runtime/instance'

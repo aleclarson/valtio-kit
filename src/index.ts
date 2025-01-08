@@ -6,7 +6,6 @@ import {
 } from '@typescript-eslint/typescript-estree'
 import { isNodeOfTypes } from '@typescript-eslint/utils/ast-utils'
 import MagicString from 'magic-string'
-import path from 'path'
 import { castArray } from 'radashi'
 import { createFilter, FilterPattern, Plugin } from 'vite'
 
@@ -36,7 +35,10 @@ export type Options = {
    */
   include?: FilterPattern
   exclude?: FilterPattern
+  /** @internal */
   onTransform?: (code: string, id: string) => void
+  /** @internal */
+  runtimePath?: string
 }
 
 export default function reactStatePlugin(options: Options = {}): Plugin {
@@ -87,8 +89,9 @@ export default function reactStatePlugin(options: Options = {}): Plugin {
       const imports = new Set<string>()
 
       for (const root of constructors) {
-        const proxyVars = new Set<string>()
+        const atoms = new Set<string>()
         const proxyObjects = new Set<string>()
+        const objectsContainingAtoms = new Set<TSESTree.Node>()
         const watchCallbacks = new Set<TSESTree.Node>()
         const nestedNodes = new WeakSet<TSESTree.Node>()
         const scopes = new Map<TSESTree.Node, BlockScope>()
@@ -139,28 +142,45 @@ export default function reactStatePlugin(options: Options = {}): Plugin {
               return
             }
 
+            if (parent.type === T.NewExpression && node === parent.callee) {
+              // Ignore new expressions.
+              return
+            }
+
             if (parent.type === T.VariableDeclarator && node === parent.id) {
               // Ignore variable declarations.
               return
             }
 
             if (parent.type === T.Property) {
-              const objectLiteral = parent.parent
-              if (
-                objectLiteral.parent.type === T.ReturnStatement &&
-                objectLiteral.parent.parent === root.body
-              ) {
-                // Allow $var objects to be returned, where createState can
-                // subscribe to them.
+              if (node === parent.key) {
+                // Ignore property names.
                 return
               }
-              if (node === parent.key) {
-                if (node !== parent.value) {
-                  // Ignore property names.
-                  return
+
+              const objectLiteral = parent.parent
+              const scope = closestScope(objectLiteral)!
+              const returnStmt = findParentNode(
+                objectLiteral,
+                parent => parent.type === T.ReturnStatement,
+                scope.node
+              )
+
+              if (returnStmt && returnStmt.parent === root.body) {
+                // Allow $atom objects to be returned, where createState can
+                // subscribe to them.
+                if (atoms.has(node.name)) {
+                  objectsContainingAtoms.add(objectLiteral)
                 }
-                // Handle shorthand property definitions.
-                if (proxyVars.has(node.name)) {
+                return
+              }
+
+              // Handle shorthand property definitions.
+              if (
+                node === parent.value &&
+                node.range[0] === parent.key.range[0]
+              ) {
+                if (atoms.has(node.name)) {
                   let name = node.name
                   if (isBeingWatched(node, root)) {
                     name = '$get(' + name + ')'
@@ -177,7 +197,7 @@ export default function reactStatePlugin(options: Options = {}): Plugin {
             }
 
             // Rewrite proxied variables to their value.
-            if (proxyVars.has(node.name)) {
+            if (atoms.has(node.name)) {
               result.appendLeft(node.range[1], '.value')
             }
           }
@@ -217,9 +237,9 @@ export default function reactStatePlugin(options: Options = {}): Plugin {
             }
 
             if (!node.init) {
-              proxyVars.add(node.id.name)
-              result.appendLeft(node.id.range[1], ` = $var()`)
-              imports.add('$var')
+              atoms.add(node.id.name)
+              result.appendLeft(node.id.range[1], ` = $atom()`)
+              imports.add('$atom')
               return
             }
 
@@ -238,9 +258,9 @@ export default function reactStatePlugin(options: Options = {}): Plugin {
             let suffix = ''
 
             if (varKind !== 'const') {
-              proxyVars.add(node.id.name)
-              imports.add('$var')
-              prefix = '$var('
+              atoms.add(node.id.name)
+              imports.add('$atom')
+              prefix = '$atom('
               suffix = ')'
             } else if (
               node.init.type === T.ObjectExpression ||
@@ -282,7 +302,9 @@ export default function reactStatePlugin(options: Options = {}): Plugin {
               // Track all watch callbacks.
               watchCallbacks.add(watchCallback)
             }
-          } else if (isBlockScope(node)) {
+          }
+          // Scope tracking
+          else if (isBlockScope(node)) {
             // Prevent variables in nested blocks from being transformed.
             if (parent) {
               nestedNodes.add(node)
@@ -293,6 +315,7 @@ export default function reactStatePlugin(options: Options = {}): Plugin {
 
             // Collect all variables/parameters in the block.
             const scope: BlockScope = {
+              node,
               names: [],
               parent: parentBlock ? scopes.get(parentBlock) : undefined,
             }
@@ -347,6 +370,21 @@ export default function reactStatePlugin(options: Options = {}): Plugin {
         }
 
         simpleTraverse(root.body, { enter }, true)
+
+        // Object literals are wrapped with `unnest(…)` except for the topmost
+        // object literal, which is handled by createState.
+        for (const objectLiteral of objectsContainingAtoms) {
+          const propertyOrReturn = findParentNode(
+            objectLiteral,
+            parent =>
+              parent.type === T.Property || parent.type === T.ReturnStatement
+          )
+          if (propertyOrReturn?.type === T.Property) {
+            imports.add('$unnest')
+            result.appendLeft(objectLiteral.range[0], '$unnest(')
+            result.appendLeft(objectLiteral.range[1], ')')
+          }
+        }
       }
 
       if (!result.hasChanged()) {
@@ -356,12 +394,10 @@ export default function reactStatePlugin(options: Options = {}): Plugin {
       imports.add('createState')
 
       if (imports.size > 0) {
-        const rootDir =
-          process.env.TEST === 'vite-react-state'
-            ? '/path/to/vite-react-state'
-            : new URL('.', import.meta.url).pathname
+        const runtimePath =
+          options.runtimePath ??
+          new URL('./runtime.js', import.meta.url).pathname
 
-        const runtimePath = path.resolve(rootDir, 'runtime.js')
         result.prepend(
           `import { ${Array.from(imports).join(', ')} } from '/@fs/${runtimePath}'\n`
         )
@@ -446,6 +482,7 @@ function isBeingAssigned(node: TSESTree.Identifier, root?: TSESTree.Node) {
 }
 
 type BlockScope = {
+  node: TSESTree.Node
   names: string[]
   parent: BlockScope | undefined
 }

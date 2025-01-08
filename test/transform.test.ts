@@ -21,14 +21,14 @@ describe('vite-react-state', () => {
   test('let variable', async () => {
     const code = await transform('let-variable.ts')
     expect(code).toMatchInlineSnapshot(`
-      "import { $var, $proxyMap, $proxySet, createState } from '/@fs//path/to/vite-react-state/runtime.js'
+      "import { $atom, $proxyMap, $proxySet, createState } from '/@fs//path/to/vite-react-state/runtime.js'
       export const Counter = createState(() => {
-        let a = $var(0);
-        let b = $var({});
-        let c = $var([]);
-        let d = /* @__PURE__ */ $var($proxyMap());
-        let e = /* @__PURE__ */ $var($proxySet());
-        let f = $var(() => {
+        let a = $atom(0);
+        let b = $atom({});
+        let c = $atom([]);
+        let d = /* @__PURE__ */ $atom($proxyMap());
+        let e = /* @__PURE__ */ $atom($proxySet());
+        let f = $atom(() => {
         });
         return {};
       });
@@ -54,19 +54,52 @@ describe('vite-react-state', () => {
     `)
   })
 
+  test('return', async () => {
+    const code = await transform('return.ts')
+    expect(code).toMatchInlineSnapshot(`
+      "import { $atom, $proxy, $unnest, createState } from '/@fs//path/to/vite-react-state/runtime.js'
+      export const Counter = createState(() => {
+        let a = $atom(0);
+        const b = $proxy({ a: a.value });
+        return {
+          a,
+          b,
+          c: $unnest({
+            a,
+            b,
+            get d() {
+              return 1;
+            },
+            array: [a.value, b]
+          }),
+          get d() {
+            return 2;
+          },
+          array: [a.value, b],
+          staticObject: { a: 1 }
+        };
+      });
+      "
+    `)
+  })
+
   test('watch', async () => {
     const code = await transform('watch.ts')
     expect(code).toMatchInlineSnapshot(`
-      "import { $var, $proxy, watch, createState } from '/@fs//path/to/vite-react-state/runtime.js'
+      "import { $atom, $proxy, $proxyMap, watch, createState } from '/@fs//path/to/vite-react-state/runtime.js'
       export const Counter = createState(() => {
-        let a = $var(0);
+        let a = $atom(0);
         const b = $proxy({ c: { d: 1 } });
+        let array = $atom([]);
+        let map = /* @__PURE__ */ $atom($proxyMap());
         watch(($get) => {
           $get(a).value;
           a.value++;
           a.value = 1;
           $get(b).c.d;
           b.c.d = 2;
+          array.value = [2];
+          map.value = /* @__PURE__ */ $proxyMap();
           let innerVar = 1;
         });
         return {};
@@ -85,9 +118,12 @@ async function transform(fixtureId: string, options: Options = {}) {
   const server = await createServer({
     root,
     logLevel: 'silent',
+    configFile: false,
     plugins: [
       reactStatePlugin({
+        ...options,
         include: /\.[jt]s$/,
+        runtimePath: '/path/to/vite-react-state/runtime.js',
         onTransform(code) {
           result = code
         },

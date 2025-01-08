@@ -5,8 +5,11 @@ export default defineConfig({
     globals: true,
     isolate: false,
     exclude: ['**/vendor/**', 'node_modules'],
-    env: {
-      TEST: 'vite-react-state',
+    setupFiles: ['./test/setup.ts'],
+    server: {
+      deps: {
+        external: ['vite'],
+      },
     },
   },
 })
