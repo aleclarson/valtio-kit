@@ -7,16 +7,20 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
-    "./react": {
-      "types": "./dist/react.d.ts",
-      "default": "./dist/react.js"
+    "./hooks": {
+      "types": "./dist/hooks.d.ts",
+      "default": "./dist/hooks.js"
+    },
+    "./types": {
+      "types": "./dist/types.d.ts",
+      "default": "./dist/types.js"
     },
     "./runtime": {
       "types": "./dist/runtime.d.ts",
       "default": "./dist/runtime.js"
     },
-    "./types": {
-      "types": "./types.d.ts"
+    "./globals": {
+      "types": "./globals.d.ts"
     }
   },
   "files": [

@@ -8,24 +8,24 @@ pnpm add vite-react-state
 
 1. Create a module with a `.state.ts` or `.state.js` extension.
 
-2. Keep your “state modules” in their own `src/state` folder. Then add a `tsconfig.json` with the following compiler option:
+2. Keep your “state module” in a dedicated `src/state` folder. Then add a `tsconfig.json` with the following compiler option:
 
 ```json
 "compilerOptions": {
-  "types": ["vite-react-state/types"]
+  "types": ["vite-react-state/globals"]
 }
 ```
 
 If you don't do this, you need to use a triple-slash directive instead:
 
 ```ts
-/// <reference types="vite-react-state/types" />
+/// <reference types="vite-react-state/globals" />
 ```
 
-3. Define your state module. For example, here's a simple counter:
+3. Call `createState` to define a reactive class. For example, here's a simple counter:
 
 ```ts
-export const useCounter = createState((initialCount = 0) => {
+export const Counter = createState((initialCount = 0) => {
   let count = initialCount
 
   return {
@@ -40,33 +40,42 @@ export const useCounter = createState((initialCount = 0) => {
 })
 ```
 
+4. Initialize a reactive instance with the `useInstance` hook. Before using its data to render your component, you should first pass it to Valtio's `useSnapshot` hook.
+
+```tsx
+import { useInstance, useSnapshot } from 'vite-react-state/hooks'
+
+export function App() {
+  const counter = useInstance(Counter)
+  const { count, increment, decrement } = useSnapshot(counter)
+
+  return (
+    <div>
+      Count: {count}
+      <button onClick={increment}>+</button>
+      <button onClick={decrement}>-</button>
+    </div>
+  )
+}
+```
+
+The `useInstance` hook _creates_ a reactive instance, which your React components can subscribe to using the `useSnapshot` hook.
+
 #### Terminology
 
-The function passed to `createState` is known as the **factory function**, which initializes a **state instance** by returning an object literal. The function returned by `createState` is known as a **state hook**, which you can use in your React components.
+The function passed to `createState` is known as the **factory function**, which initializes a **reactive instance** by returning an object literal. The function returned by `createState` is known as a **reactive class**.
+
+This package also borrows terminology from [Valtio](https://github.com/pmndrs/valtio). For example, a **snapshot** is an immutable copy of a reactive instance, which can intelligently rerender your React components if an accessed property changes. You **subscribe** to a reactive instance (or its property) to be notified when it changes. In Valtio, a reactive instance is referred to as a **proxy**.
 
 ## Rules
 
-There are a few rules to keep in mind when writing a state hook:
+There are a few rules to keep in mind inside a `createState` factory function:
 
-- The `createState` callback must…
-  - …require at least one parameter.
-  - …return an object literal.
-- Parameters cannot use nested destructuring (PR welcome).
-- [Variable shadowing](https://dev.to/catherineisonline/what-is-variable-shadowing-in-javascript-59ci) is forbidden (PR welcome).
-
-## Transformation
-
-The plugin will transform any variable declarations at the root level of your state module's factory function, making them ✨reactive✨. Most of the time, you can write basic JavaScript and your React components will update when something they depend on changes.
-
-Allow me to list all the things that will be transformed:
-
-- Parameters of the factory function.
-  - **Why?** These parameters are ✨reactive✨. In other words, the React component that initializes the _state instance_ can update these parameters by re-rendering and passing in new values.
-- Variables declared at the root level of the factory function.
-  - One _exception_ is `const` variables initialized with a function.
-- References to transformed parameters and variables.
-  - One _exception_ is when the reference is being assigned to a property of the _state instance_ (i.e. the object literal returned by the factory function). This ensures that reactive variables can be ✨observed✨ by React components.
-
-## Context
-
-Every state hook
+- You must return an object literal.
+- Root-level `let` and `var` declarations are _deeply_ reactive by default.
+- Certain objects are _deeply_ reactive when assigned to root-level variables. This includes:
+  - plain objects
+  - arrays
+  - `new Map()`
+  - `new Set()`
+- _Variable shadowing_ is currently discouraged, as some edge cases have not yet been ironed out.
