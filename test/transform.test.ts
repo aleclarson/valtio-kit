@@ -1,14 +1,14 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { createServer } from 'vite'
-import reactStatePlugin, { Options } from '../src/index.js'
+import valtioPlugin, { Options } from '../src/index.js'
 
-describe('vite-react-state', () => {
+describe('valtio-kit', () => {
   test('let variable', async () => {
     const code = await transform('let-variable.ts')
     expect(code).toMatchInlineSnapshot(`
-      "import { $atom, $proxyMap, $proxySet, createState } from '/@fs//path/to/vite-react-state/runtime.js'
-      export const Counter = createState(() => {
+      "import { $atom, $proxyMap, $proxySet, createClass } from '/@fs//path/to/valtio-kit/runtime.js'
+      export const Counter = createClass(() => {
         let a = $atom(0);
         let b = $atom({});
         let c = $atom([]);
@@ -25,8 +25,8 @@ describe('vite-react-state', () => {
   test('const variable', async () => {
     const code = await transform('const-variable.ts')
     expect(code).toMatchInlineSnapshot(`
-      "import { $proxy, $proxyMap, $proxySet, createState } from '/@fs//path/to/vite-react-state/runtime.js'
-      export const Counter = createState(() => {
+      "import { $proxy, $proxyMap, $proxySet, createClass } from '/@fs//path/to/valtio-kit/runtime.js'
+      export const Counter = createClass(() => {
         const a = 0;
         const b = $proxy({});
         const c = $proxy([]);
@@ -43,8 +43,8 @@ describe('vite-react-state', () => {
   test('return', async () => {
     const code = await transform('return.ts')
     expect(code).toMatchInlineSnapshot(`
-      "import { $atom, $proxy, $unnest, createState } from '/@fs//path/to/vite-react-state/runtime.js'
-      export const Counter = createState(() => {
+      "import { $atom, $proxy, $unnest, createClass } from '/@fs//path/to/valtio-kit/runtime.js'
+      export const Counter = createClass(() => {
         let a = $atom(0);
         const b = $proxy({ a: a.value });
         return {
@@ -72,8 +72,8 @@ describe('vite-react-state', () => {
   test('subscribe', async () => {
     const code = await transform('subscribe.ts')
     expect(code).toMatchInlineSnapshot(`
-      "import { $atom, $proxy, subscribe, createState } from '/@fs//path/to/vite-react-state/runtime.js'
-      export const Counter = createState(() => {
+      "import { $atom, $proxy, subscribe, createClass } from '/@fs//path/to/valtio-kit/runtime.js'
+      export const Counter = createClass(() => {
         let a = $atom(0);
         const b = $proxy({ c: 1 });
         subscribe(a, () => {
@@ -91,8 +91,8 @@ describe('vite-react-state', () => {
   test('watch', async () => {
     const code = await transform('watch.ts')
     expect(code).toMatchInlineSnapshot(`
-      "import { $atom, $proxy, $proxyMap, watch, createState } from '/@fs//path/to/vite-react-state/runtime.js'
-      export const Counter = createState(() => {
+      "import { $atom, $proxy, $proxyMap, watch, createClass } from '/@fs//path/to/valtio-kit/runtime.js'
+      export const Counter = createClass(() => {
         let a = $atom(0);
         const b = $proxy({ c: { d: 1 } });
         let array = $atom([]);
@@ -125,10 +125,10 @@ async function transform(fixtureId: string, options: Options = {}) {
     logLevel: 'silent',
     configFile: false,
     plugins: [
-      reactStatePlugin({
+      valtioPlugin({
         ...options,
         include: /\.[jt]s$/,
-        runtimePath: '/path/to/vite-react-state/runtime.js',
+        runtimePath: '/path/to/valtio-kit/runtime.js',
         onTransform(code) {
           result = code
         },

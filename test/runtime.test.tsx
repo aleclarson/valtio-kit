@@ -7,10 +7,10 @@ import path from 'path'
 import { dedent } from 'radashi'
 import spawn from 'tinyspawn'
 import { useSnapshot } from 'valtio'
-import { useInstance } from 'vite-react-state/hooks'
-import { ReactiveClass } from 'vite-react-state/types'
+import { useInstance } from 'valtio-kit/hooks'
+import { ReactiveClass } from 'valtio-kit/types'
 
-describe('createState', () => {
+describe('createClass', () => {
   test('basic Counter example', async () => {
     type CounterClass = ReactiveClass<
       (initialCount?: number) => { count: number; increment: () => void }
@@ -18,7 +18,7 @@ describe('createState', () => {
     type CounterModule = { Counter: CounterClass }
 
     const { Counter } = await load<CounterModule>(dedent/* ts */ `
-      export const Counter = createState((initialCount = 0) => {
+      export const Counter = createClass((initialCount = 0) => {
         let count = initialCount
         return {
           count,
@@ -59,7 +59,7 @@ describe('createState', () => {
     >
 
     const { State } = await load<{ State: StateClass }>(dedent/* ts */ `
-      export const State = createState(() => {
+      export const State = createClass(() => {
         const map = new Map()
         const mapSizeIsMultipleOfFour = computed(() => {
           return map.size % 4 === 0
@@ -118,7 +118,7 @@ async function load<T extends Record<string, any>>(code: string) {
     configFile,
     dedent/* ts */ `
       import { defineConfig } from 'vite'
-      import reactStatePlugin from 'vite-react-state'
+      import reactStatePlugin from 'valtio-kit'
 
       export default defineConfig({
         root: new URL('.', import.meta.url).pathname,
@@ -129,14 +129,14 @@ async function load<T extends Record<string, any>>(code: string) {
             formats: ['es'],
           },
           rollupOptions: {
-            external: ['vite-react-state/runtime'],
+            external: ['valtio-kit/runtime'],
           },
           minify: false,
           emptyOutDir: false,
         },
         plugins: [
           reactStatePlugin({
-            runtimePath: 'vite-react-state/runtime',
+            runtimePath: 'valtio-kit/runtime',
           }),
         ],
       })

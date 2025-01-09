@@ -23,7 +23,7 @@ declare global {
    * function: `getVersion`, `on`, `onMount`, `ref`, `snapshot`, `subscribe`,
    * `subscribeKey`, and `watch`.
    */
-  const createState: typeof runtime.createState
+  const createClass: typeof runtime.createClass
   /**
    * In Valtio, updates to proxied objects are tracked internally with a version
    * number.
@@ -105,10 +105,10 @@ declare global {
   const snapshot: typeof runtime.snapshot
   /**
    * Subscribe to changes to an object, array, map, or set that was declared at
-   * the root level of your `createState` factory function.
+   * the root level of your `createClass` factory function.
    *
    * ```ts
-   * createState(() => {
+   * createClass(() => {
    *   const state = { count: 0 }
    *
    *   // Subscribe to all changes to the state object (and its child objects)

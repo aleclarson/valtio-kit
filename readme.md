@@ -1,7 +1,7 @@
-# vite-react-state
+# valtio-kit
 
 ```
-pnpm add vite-react-state
+pnpm add valtio-kit
 ```
 
 ## Usage
@@ -9,10 +9,17 @@ pnpm add vite-react-state
 1. Add the Vite plugin to your `vite.config.ts` file.
 
 ```ts
-import reactState from 'vite-react-state'
+import { valtioKit } from 'valtio-kit/vite'
 
 export default defineConfig({
-  plugins: [reactState()],
+  plugins: [
+    // These are the default options.
+    valtioKit({
+      include: /\.state\.[jt]s$/,
+      exclude: /\/node_modules\//,
+      globals: false,
+    }),
+  ],
 })
 ```
 
@@ -27,30 +34,30 @@ export default defineConfig({
 
 ```json
 "compilerOptions": {
-  "types": ["vite-react-state/globals"]
+  "types": ["valtio-kit/globals"]
 }
 ```
 
 - If you don't add a `tsconfig.json` file, you need to use a triple-slash directive instead:
 
 ```ts
-/// <reference types="vite-react-state/globals" />
+/// <reference types="valtio-kit/globals" />
 ```
 
 - Finally, set `globals: true` in your `vite.config.ts` file:
 
 ```ts
 export default defineConfig({
-  plugins: [reactState({ globals: true })],
+  plugins: [valtioKit({ globals: true })],
 })
 ```
 
 </details>
 
-4. Call `createState` to define a reactive class. For example, here's a simple counter:
+4. Call `createClass` to define a reactive class. For example, here's a simple counter:
 
 ```ts
-export const Counter = createState((initialCount = 0) => {
+export const Counter = createClass((initialCount = 0) => {
   let count = initialCount
 
   return {
@@ -65,10 +72,14 @@ export const Counter = createState((initialCount = 0) => {
 })
 ```
 
+> [!NOTE]
+> The function passed to `createClass` is known as the **factory function**, which initializes a **reactive instance** by returning an object literal. The function returned by `createClass` is known as a **reactive class**.
+
 5. Initialize a reactive instance with the `useInstance` hook. Before using its data to render your component, you should first pass it to Valtio's `useSnapshot` hook.
 
 ```tsx
-import { useInstance, useSnapshot } from 'vite-react-state/hooks'
+import { useInstance, useSnapshot } from 'valtio-kit/react'
+import { Counter } from './Counter.state'
 
 export function App() {
   // Create a counter with an initial count of 100.
@@ -91,13 +102,11 @@ The `useInstance` hook _creates_ a reactive instance, which your React component
 
 #### Terminology
 
-The function passed to `createState` is known as the **factory function**, which initializes a **reactive instance** by returning an object literal. The function returned by `createState` is known as a **reactive class**.
-
-This package also borrows terminology from [Valtio](https://github.com/pmndrs/valtio). For example, a **snapshot** is an immutable copy of a reactive instance, which can intelligently rerender your React components if an accessed property changes. You **subscribe** to a reactive instance (or its property) to be notified when it changes. In Valtio, a reactive instance is referred to as a **proxy**.
+This package borrows terminology from [Valtio](https://github.com/pmndrs/valtio). For example, a **snapshot** is an immutable copy of a reactive instance, which can intelligently rerender your React components if an accessed property changes. You **subscribe** to a reactive instance (or its property) to be notified when it changes. In Valtio, a reactive instance is referred to as a **proxy**.
 
 ## Rules
 
-There are a few rules to keep in mind inside a `createState` factory function:
+There are a few rules to keep in mind inside a `createClass` factory function:
 
 - You must return an object literal.
 - Root-level `let` and `var` declarations are _deeply_ reactive by default.
@@ -114,11 +123,11 @@ There are a few rules to keep in mind inside a `createState` factory function:
 
 #### Persistent effects
 
-Your `createState` factory function can set up persistent effects. If you construct a reactive instance **outside of a React component**, it's recommended to use the [`using`](https://www.totaltypescript.com/typescript-5-2-new-keyword-using) keyword to ensure any persistent effects are cleaned up when the reactive instance goes out of scope. Alternatively, you can call the `[Symbol.dispose]` method on the reactive instance to manually clean up its effects.
+Your `createClass` factory function can set up persistent effects. If you construct a reactive instance **outside of a React component**, it's recommended to use the [`using`](https://www.totaltypescript.com/typescript-5-2-new-keyword-using) keyword to ensure any persistent effects are cleaned up when the reactive instance goes out of scope. Alternatively, you can call the `[Symbol.dispose]` method on the reactive instance to manually clean up its effects.
 
 ## API
 
-The following functions are implicitly available within every `createState` factory function.
+The following functions are implicitly available within every `createClass` factory function.
 
 ### `computed`
 
@@ -128,7 +137,7 @@ The following functions are implicitly available within every `createState` fact
 > To use `computed`, you must use `const … = computed(() => …)` syntax. Using `computed` to define an object property is not yet supported.
 
 ```ts
-const TacoExample = createState(() => {
+const TacoExample = createClass(() => {
   let day = 'Monday'
   const taco = { type: 'beef' }
   const isTacoTuesday = computed(
@@ -159,7 +168,7 @@ example.isTacoTuesday // => false
 `watch` is a persistent effect that reruns when its reactive dependencies change.
 
 ```ts
-const CatExample = createState(() => {
+const CatExample = createClass(() => {
   // Any of this data can be watched.
   const cat = { name: 'Fluffy' }
   let numLives = 9
@@ -201,7 +210,7 @@ cat.eatFish()
 `on` is a function that attaches an event listener to any `EventTarget`.
 
 ```ts
-const ResizeExample = createState(() => {
+const ResizeExample = createClass(() => {
   let ratio = window.innerWidth / window.innerHeight
   on(window, 'resize', () => {
     ratio = window.innerWidth / window.innerHeight
@@ -220,7 +229,7 @@ example.ratio // Updates when the window is resized.
 `onMount` is a function that runs a callback when a reactive instance is mounted. The callback must return a cleanup function, which gets called when the reactive instance is unmounted.
 
 ```ts
-const StyleSheetExample = createState(() => {
+const StyleSheetExample = createClass(() => {
   const style = document.createElement('style')
   onMount(() => {
     document.head.appendChild(style)
@@ -242,7 +251,7 @@ example.style.textContent = 'body { background-color: red; }'
 `subscribe` is a function that listens for changes to a given reactive object or even a reactive variable.
 
 ```ts
-const SubscribeExample = createState(() => {
+const SubscribeExample = createClass(() => {
   let a = 0
   const b = { c: 1 }
 
@@ -276,7 +285,7 @@ example.update({ a: 1, b: { c: 2 } })
 `subscribeKey` is a function that listens for changes to a specific key of a reactive object.
 
 ```ts
-const SubscribeKeyExample = createState(() => {
+const SubscribeKeyExample = createClass(() => {
   const b = { c: 1 }
   subscribeKey(b, 'c', () => {
     console.log('b.c changed to', b.c)

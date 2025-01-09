@@ -1,5 +1,6 @@
 {
-  "name": "vite-react-state",
+  "name": "valtio-kit",
+  "description": "Valtio enhanced with Vite superpowers",
   "type": "module",
   "version": "0.0.0",
   "exports": {
@@ -7,20 +8,24 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
-    "./hooks": {
-      "types": "./dist/hooks.d.ts",
-      "default": "./dist/hooks.js"
+    "./react": {
+      "types": "./dist/react/index.d.ts",
+      "default": "./dist/react/index.js"
     },
-    "./types": {
-      "types": "./dist/types.d.ts",
-      "default": "./dist/types.js"
+    "./vite": {
+      "types": "./dist/vite/plugin.d.ts",
+      "default": "./dist/vite/plugin.js"
     },
-    "./runtime": {
-      "types": "./dist/runtime.d.ts",
-      "default": "./dist/runtime.js"
+    "./transform": {
+      "types": "./dist/transform/index.d.ts",
+      "default": "./dist/transform/index.js"
     },
     "./globals": {
       "types": "./globals.d.ts"
+    },
+    "./runtime": {
+      "types": "./dist/runtime/index.d.ts",
+      "default": "./dist/runtime/index.js"
     }
   },
   "files": [
@@ -30,7 +35,7 @@
   "author": "Alec Larson",
   "repository": {
     "type": "git",
-    "url": "https://github.com/aleclarson/vite-react-state.git"
+    "url": "https://github.com/aleclarson/valtio-kit.git"
   },
   "prettier": "@alloc/prettier-config",
   "scripts": {
@@ -56,7 +61,7 @@
     "typescript": "^5.7.2",
     "valtio": "^2.1.2",
     "vite": "^6.0.7",
-    "vite-react-state": "link:",
+    "valtio-kit": "link:",
     "vitest": "^2.1.8"
   },
   "dependencies": {

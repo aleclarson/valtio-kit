@@ -1,4 +1,4 @@
-export const Counter = createState(() => {
+export const Counter = createClass(() => {
   const a = 0
   const b = {}
   const c = []
