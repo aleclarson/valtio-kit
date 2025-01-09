@@ -1,5 +1,7 @@
 # valtio-kit
 
+**Valtio Kit** is a Vite plugin and an optimized runtime that brings transparent reactivity to your plain JavaScript logic. It leverages Valtio to provide immutable snapshots and reactive subscriptions, allowing you to manage state with straightforward, imperative JavaScript or TypeScript. The key advantage is that your React components will efficiently rerender only when the specific state they depend on changes, optimizing performance and simplifying state management.
+
 ```
 pnpm add valtio-kit
 ```
