@@ -77,14 +77,19 @@ There are a few rules to keep in mind inside a `createState` factory function:
 - You must return an object literal.
 - Root-level `let` and `var` declarations are _deeply_ reactive by default.
 - When you return a non-`const` variable as a property, a one-way binding is implicitly created, so assigning to the variable will re-render any components that use the property.
-- Certain objects are _deeply_ reactive when assigned to root-level variables. This includes:
+- Certain objects are _deeply_ reactive when assigned to root-level variables. This is even true when assignment occurs inside a nested function. Supported object types include:
   - plain objects
   - arrays
   - `new Map()`
   - `new Set()`
+- Any time you construct a new `Map` or `Set` anywhere inside your factory function, it will be made _deeply_ reactive.
 - The factory function can have arguments. Any kind and any number of arguments are supported.
 - Passing a reactive instance into a factory function is not currently supported.
 - _Variable shadowing_ is currently discouraged, as some edge cases have not yet been ironed out.
+
+#### Persistent effects
+
+Your `createState` factory function can set up persistent effects. If you construct a reactive instance **outside of a React component**, it's recommended to use the [`using`](https://www.totaltypescript.com/typescript-5-2-new-keyword-using) keyword to ensure any persistent effects are cleaned up when the reactive instance goes out of scope. Alternatively, you can call the `[Symbol.dispose]` method on the reactive instance to manually clean up its effects.
 
 ## API
 
