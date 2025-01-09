@@ -100,7 +100,24 @@ export function App() {
 
 The `useInstance` hook _creates_ a reactive instance, which your React components can subscribe to using the `useSnapshot` hook.
 
-#### Terminology
+#### Global state
+
+In some cases, you may prefer to initialize a reactive instance outside of a React component. For example, you may want to initialize a global state object that can be accessed by any component.
+
+```ts
+import { Counter } from './Counter.state'
+
+// Initialize a global counter with an initial count of 1.
+export const counter = new Counter(1)
+```
+
+If your global instance sets up any persistent effects (i.e. `watch`, `on`, etc.), you need to clean up the effects when Vite HMR is triggered.
+
+```ts
+import.meta.hot?.dispose(() => counter.release())
+```
+
+### Terminology
 
 This package borrows terminology from [Valtio](https://github.com/pmndrs/valtio). For example, a **snapshot** is an immutable copy of a reactive instance, which can intelligently rerender your React components if an accessed property changes. You **subscribe** to a reactive instance (or its property) to be notified when it changes. In Valtio, a reactive instance is referred to as a **proxy**.
 
@@ -120,10 +137,6 @@ There are a few rules to keep in mind inside a `createClass` factory function:
 - The factory function can have arguments. Any kind and any number of arguments are supported.
 - Passing a reactive instance into a factory function is not currently supported.
 - _Variable shadowing_ is currently discouraged, as some edge cases have not yet been ironed out.
-
-#### Persistent effects
-
-Your `createClass` factory function can set up persistent effects. If you construct a reactive instance **outside of a React component**, it's recommended to use the [`using`](https://www.totaltypescript.com/typescript-5-2-new-keyword-using) keyword to ensure any persistent effects are cleaned up when the reactive instance goes out of scope. Alternatively, you can call the `[Symbol.dispose]` method on the reactive instance to manually clean up its effects.
 
 ## API
 

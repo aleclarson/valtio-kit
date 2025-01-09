@@ -6,9 +6,8 @@ import fs from 'fs'
 import path from 'path'
 import { dedent } from 'radashi'
 import spawn from 'tinyspawn'
-import { useSnapshot } from 'valtio'
-import { useInstance } from 'valtio-kit/hooks'
-import { ReactiveClass } from 'valtio-kit/types'
+import { ReactiveClass } from 'valtio-kit'
+import { useInstance, useSnapshot } from 'valtio-kit/react'
 
 describe('createClass', () => {
   test('basic Counter example', async () => {
@@ -118,7 +117,7 @@ async function load<T extends Record<string, any>>(code: string) {
     configFile,
     dedent/* ts */ `
       import { defineConfig } from 'vite'
-      import reactStatePlugin from 'valtio-kit'
+      import { valtioKit } from 'valtio-kit/vite'
 
       export default defineConfig({
         root: new URL('.', import.meta.url).pathname,
@@ -135,7 +134,8 @@ async function load<T extends Record<string, any>>(code: string) {
           emptyOutDir: false,
         },
         plugins: [
-          reactStatePlugin({
+          valtioKit({
+            globals: true,
             runtimePath: 'valtio-kit/runtime',
           }),
         ],

@@ -26,8 +26,6 @@ export function watch(
   EffectScope.schedule(() => utils.watch(callback, options))
 }
 
-export type Op = valtio.INTERNAL_Op
-
 /**
  * Subscribe to changes to an object, array, map, or set that was declared at
  * the root level of your `createClass` factory function.
@@ -59,7 +57,7 @@ export type Op = valtio.INTERNAL_Op
  */
 export function subscribe(
   target: unknown,
-  callback: (unstable_ops: Op[]) => void,
+  callback: (unstable_ops: valtio.INTERNAL_Op[]) => void,
   notifyInSync?: boolean
 ) {
   // This type guard helps prevent misuse while still allowing `let` variables

@@ -22,6 +22,11 @@ export abstract class ReactiveInstance<T extends object> {
     }
   }
 
+  /**
+   * Dispose of any persistent effects created by the reactive instance. You
+   * only need to call this if you created the instance outside of a React
+   * component's render pass.
+   */
   release(): void {
     EffectScope.release(this)
   }

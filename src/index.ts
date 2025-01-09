@@ -1,4 +1,11 @@
-export * from 'valtio/vanilla'
+export {
+  getVersion,
+  proxy,
+  ref,
+  snapshot,
+  type INTERNAL_Op,
+  type Snapshot,
+} from 'valtio/vanilla'
 export { computed } from './runtime/computed'
 export { createClass } from './runtime/createClass'
 export {
@@ -8,7 +15,6 @@ export {
   subscribeKey,
   watch,
   type Cleanup,
-  type Op,
 } from './runtime/effects'
 export {
   ReactiveInstance,
