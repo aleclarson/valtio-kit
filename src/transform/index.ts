@@ -441,7 +441,8 @@ export function transform(
 
   if (imports.size > 0) {
     let runtimePath =
-      options.runtimePath ?? new URL('./runtime.js', import.meta.url).pathname
+      options.runtimePath ??
+      new URL('./runtime/index.js', import.meta.url).pathname
 
     if (isAbsolute(runtimePath)) {
       runtimePath = `/@fs/${runtimePath}`
