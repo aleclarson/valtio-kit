@@ -6,9 +6,24 @@ pnpm add vite-react-state
 
 ## Usage
 
-1. Create a module with a `.state.ts` or `.state.js` extension.
+1. Add the Vite plugin to your `vite.config.ts` file.
 
-2. Keep your “state module” in a dedicated `src/state` folder. Then add a `tsconfig.json` with the following compiler option:
+```ts
+import reactState from 'vite-react-state'
+
+export default defineConfig({
+  plugins: [reactState()],
+})
+```
+
+2. Create a module with a `.state.ts` or `.state.js` extension.
+
+3. (Optional) Enable the “globals API” to skip importing the various runtime functions provided by this package.
+
+<details>
+<summary><i>Enabling the globals API</i></summary>
+
+- Keep your “state module” in a dedicated `src/state` folder. Then add a `tsconfig.json` with the following compiler option:
 
 ```json
 "compilerOptions": {
@@ -16,13 +31,23 @@ pnpm add vite-react-state
 }
 ```
 
-If you don't do this, you need to use a triple-slash directive instead:
+- If you don't add a `tsconfig.json` file, you need to use a triple-slash directive instead:
 
 ```ts
 /// <reference types="vite-react-state/globals" />
 ```
 
-3. Call `createState` to define a reactive class. For example, here's a simple counter:
+- Finally, set `globals: true` in your `vite.config.ts` file:
+
+```ts
+export default defineConfig({
+  plugins: [reactState({ globals: true })],
+})
+```
+
+</details>
+
+4. Call `createState` to define a reactive class. For example, here's a simple counter:
 
 ```ts
 export const Counter = createState((initialCount = 0) => {
@@ -40,7 +65,7 @@ export const Counter = createState((initialCount = 0) => {
 })
 ```
 
-4. Initialize a reactive instance with the `useInstance` hook. Before using its data to render your component, you should first pass it to Valtio's `useSnapshot` hook.
+5. Initialize a reactive instance with the `useInstance` hook. Before using its data to render your component, you should first pass it to Valtio's `useSnapshot` hook.
 
 ```tsx
 import { useInstance, useSnapshot } from 'vite-react-state/hooks'

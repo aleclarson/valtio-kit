@@ -40,6 +40,10 @@ export type Options = {
    */
   include?: FilterPattern
   exclude?: FilterPattern
+  /**
+   * @default false
+   */
+  globals?: boolean
   /** @internal */
   onTransform?: (code: string, id: string) => void
   /** @internal */
@@ -315,7 +319,7 @@ export default function reactStatePlugin(options: Options = {}): Plugin {
             const globalFunction = globalFunctions.find(name =>
               isGlobalCallTo(node, name)
             )
-            if (globalFunction) {
+            if (globalFunction && options.globals) {
               imports.add(globalFunction)
             }
             if (globalFunction === 'watch' || globalFunction === 'computed') {
@@ -448,7 +452,9 @@ export default function reactStatePlugin(options: Options = {}): Plugin {
         return
       }
 
-      imports.add('createState')
+      if (options.globals) {
+        imports.add('createState')
+      }
 
       if (imports.size > 0) {
         let runtimePath =
