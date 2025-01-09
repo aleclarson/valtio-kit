@@ -12,7 +12,7 @@ export function createState<Factory extends (...args: any[]) => object>(
       scope.activate()
       try {
         const self = unnest(copyDescriptors(this, factory(...args)))
-        EffectScope.set(self, scope)
+        EffectScope.assign(self, scope)
         return self
       } finally {
         scope.deactivate()

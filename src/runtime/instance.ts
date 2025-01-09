@@ -1,12 +1,27 @@
 import { isClass } from 'radashi'
+import * as React from 'react'
 import { useEffect, useMemo, useRef } from 'react'
 import { EffectScope } from './scope'
 
 /**
  * The class extended by all reactive instances.
+ *
+ * If you create a reactive instance outside of a React component, the `using`
+ * keyword is required. This ensures any persistent effects the instance created
+ * are destroyed when it goes out of scope.
  */
 export abstract class ReactiveInstance<T extends object> {
   declare protected $data: T
+
+  constructor() {
+    if (!insideReactComponent()) {
+      EffectScope.mount(this)
+    }
+  }
+
+  [Symbol.dispose](): void {
+    EffectScope.unmount(this)
+  }
 }
 
 /**
@@ -77,13 +92,31 @@ export function useInstance(
 
   useEffect(() => {
     if (instance) {
-      const scope = EffectScope.get(instance)!
-      scope.mount()
+      EffectScope.mount(instance)
       return () => {
-        scope.unmount()
+        EffectScope.unmount(instance)
       }
     }
   }, [instance])
 
   return instance
+}
+
+function insideReactComponent() {
+  // React 19+
+  let ReactSharedInternals =
+    (React as any)
+      .__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE ||
+    (React as any)
+      .__SERVER_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE
+
+  if (ReactSharedInternals) {
+    return ReactSharedInternals.H !== null
+  }
+
+  // React 18
+  ReactSharedInternals = (React as any)
+    .__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED
+
+  return ReactSharedInternals.ReactCurrentDispatcher.current !== null
 }

@@ -19,10 +19,13 @@ export function watch(
 export type Op = valtio.INTERNAL_Op
 
 export function subscribe(
-  target: object,
+  target: unknown,
   callback: (unstable_ops: Op[]) => void,
   notifyInSync?: boolean
 ) {
+  if (typeof target !== 'object' || target === null) {
+    throw new Error('Target must be an object')
+  }
   EffectScope.current.add(() =>
     valtio.subscribe(target, callback, notifyInSync)
   )

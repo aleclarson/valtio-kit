@@ -31,11 +31,17 @@ export class EffectScope {
     return activeScope!
   }
 
-  static get(object: object) {
-    return scopes.get(object)
+  static assign(object: object, scope: EffectScope) {
+    scopes.set(object, scope)
   }
 
-  static set(object: object, scope: EffectScope) {
-    scopes.set(object, scope)
+  static mount(object: object) {
+    const scope = scopes.get(object)
+    scope?.mount()
+  }
+
+  static unmount(object: object) {
+    const scope = scopes.get(object)
+    scope?.unmount()
   }
 }

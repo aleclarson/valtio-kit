@@ -204,8 +204,17 @@ export default function reactStatePlugin(options: Options = {}): Plugin {
               result.appendLeft(node.range[1], ')')
             }
 
-            // Rewrite proxied variables to their value.
+            // Rewrite atoms to their value.
             if (atoms.has(node.name)) {
+              if (
+                node.parent.type === T.CallExpression &&
+                node === node.parent.arguments[0] &&
+                isGlobalCallTo(node.parent, 'subscribe')
+              ) {
+                // Avoid unboxing an atom passed as the first argument of a
+                // `subscribe` call.
+                return
+              }
               result.appendLeft(node.range[1], '.value')
             }
           }

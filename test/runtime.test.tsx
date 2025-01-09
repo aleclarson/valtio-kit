@@ -7,7 +7,8 @@ import path from 'path'
 import { dedent } from 'radashi'
 import spawn from 'tinyspawn'
 import { useSnapshot } from 'valtio'
-import { ReactiveClass, useInstance } from 'vite-react-state/react'
+import { useInstance } from 'vite-react-state/hooks'
+import { ReactiveClass } from 'vite-react-state/types'
 
 describe('createState', () => {
   test('basic Counter example', async () => {

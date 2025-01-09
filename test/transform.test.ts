@@ -69,6 +69,25 @@ describe('vite-react-state', () => {
     `)
   })
 
+  test('subscribe', async () => {
+    const code = await transform('subscribe.ts')
+    expect(code).toMatchInlineSnapshot(`
+      "import { $atom, $proxy, subscribe, createState } from '/@fs//path/to/vite-react-state/runtime.js'
+      export const Counter = createState(() => {
+        let a = $atom(0);
+        const b = $proxy({ c: 1 });
+        subscribe(a, () => {
+          console.log("a changed to", a.value);
+        });
+        subscribe(b, () => {
+          console.log("b changed to", b);
+        });
+        return {};
+      });
+      "
+    `)
+  })
+
   test('watch', async () => {
     const code = await transform('watch.ts')
     expect(code).toMatchInlineSnapshot(`
