@@ -254,19 +254,35 @@ export function transform(
         let prefix = ''
         let suffix = ''
 
+        let computedProperty: TSESTree.Property | undefined
+        if (node.init.type === T.ObjectExpression) {
+          computedProperty = node.init.properties.find(
+            property =>
+              property.type === T.Property &&
+              property.value.type === T.CallExpression &&
+              hasCalleeNamed(property.value, 'computed')
+          ) as TSESTree.Property | undefined
+
+          if (computedProperty) {
+            imports.add('$unnest')
+            prefix = '$unnest('
+            suffix = ')'
+          }
+        }
+
         if (varKind !== 'const') {
           atoms.add(node.id.name)
           imports.add('$atom')
-          prefix = '$atom('
-          suffix = ')'
+          prefix = '$atom(' + prefix
+          suffix = suffix + ')'
         } else if (
-          node.init.type === T.ObjectExpression ||
-          node.init.type === T.ArrayExpression
+          node.init.type === T.ArrayExpression ||
+          (node.init.type === T.ObjectExpression && !computedProperty)
         ) {
           proxies.add(node.id.name)
           imports.add('$proxy')
-          prefix = '$proxy('
-          suffix = ')'
+          prefix = '$proxy(' + prefix
+          suffix = suffix + ')'
         }
 
         if (prefix) {
@@ -301,6 +317,11 @@ export function transform(
 
           // Treat computed variables as atoms.
           if (globalFunction === 'computed') {
+            if (node.parent.type === T.Property && node === node.parent.value) {
+              // Allow computed(…) to declare a computed property.
+              return
+            }
+
             const variableDeclarator =
               node.parent.type === T.VariableDeclarator
                 ? node.parent
@@ -395,12 +416,14 @@ export function transform(
     // Object literals are wrapped with `unnest(…)` except for the topmost
     // object literal, which is handled by createClass.
     for (const objectLiteral of objectsContainingAtoms) {
-      const propertyOrReturn = findParentNode(
+      const container = findParentNode(
         objectLiteral,
         parent =>
-          parent.type === T.Property || parent.type === T.ReturnStatement
+          parent.type === T.Property ||
+          parent.type === T.ReturnStatement ||
+          parent.type === T.VariableDeclarator
       )
-      if (propertyOrReturn?.type === T.Property) {
+      if (container && container.type !== T.ReturnStatement) {
         imports.add('$unnest')
         result.appendLeft(objectLiteral.range[0], '$unnest(')
         result.appendLeft(objectLiteral.range[1], ')')

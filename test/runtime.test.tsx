@@ -51,6 +51,7 @@ describe('createClass', () => {
   test('using computed', async () => {
     type StateClass = ReactiveClass<
       () => {
+        foo: { bar: string | undefined }
         map: Map<number, string>
         mapSizeIsMultipleOfFour: boolean
         set: (key: number, value: string) => void
@@ -63,7 +64,11 @@ describe('createClass', () => {
         const mapSizeIsMultipleOfFour = computed(() => {
           return map.size % 4 === 0
         })
+        const foo = {
+          bar: computed(() => map.get(0)),
+        }
         return {
+          foo,
           map,
           mapSizeIsMultipleOfFour,
           set(key: number, value: string) {
@@ -78,6 +83,7 @@ describe('createClass', () => {
 
       return (
         <div>
+          <span data-testid="foo-bar">{state.foo.bar}</span>
           <span data-testid="current">
             {String(state.mapSizeIsMultipleOfFour)}
           </span>
@@ -93,9 +99,14 @@ describe('createClass', () => {
     }
 
     const app = render(<App />)
+    expect(app.getByTestId('foo-bar')).toHaveTextContent('')
     expect(app.getByTestId('current')).toHaveTextContent('true')
 
-    for (let i = 0; i < 3; i++) {
+    await userEvent.click(app.getByTestId('mutate'))
+    expect(app.getByTestId('foo-bar')).toHaveTextContent('foo')
+    expect(app.getByTestId('current')).toHaveTextContent('false')
+
+    for (let i = 0; i < 2; i++) {
       await userEvent.click(app.getByTestId('mutate'))
       expect(app.getByTestId('current')).toHaveTextContent('false')
     }

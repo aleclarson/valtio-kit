@@ -147,7 +147,15 @@ The following functions are implicitly available within every `createClass` fact
 `computed` is a function that subscribes to reactive values and returns a new reactive value.
 
 > [!NOTE]
-> To use `computed`, you must use `const … = computed(() => …)` syntax. Using `computed` to define an object property is not yet supported.
+> Computed values **cannot** be declared just anywhere. You can only call `computed` with the following syntax and it must be declared at the root level of a `createClass` factory function:
+>
+> ```ts
+> // This is a readonly, computed variable.
+> const xyz = computed(() => …)
+>
+> // This is a readonly, computed property.
+> const foo = { bar: computed(() => …) }
+> ```
 
 ```ts
 const TacoExample = createClass(() => {
