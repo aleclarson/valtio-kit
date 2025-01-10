@@ -24,14 +24,11 @@ export function createClass<Factory extends (...args: any[]) => object>(
   const ReactiveClass = class extends ReactiveInstance<ReturnType<Factory>> {
     constructor(...args: Parameters<Factory>) {
       super()
-      const scope = new EffectScope()
-      scope.enter()
+      this[EffectScope.symbol].enter()
       try {
-        const self = unnest(copyDescriptors(this, factory(...args)))
-        EffectScope.assign(self, scope)
-        return self
+        return unnest(copyDescriptors(this, factory(...args)))
       } finally {
-        scope.leave()
+        this[EffectScope.symbol].leave()
       }
     }
   }

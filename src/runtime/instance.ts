@@ -16,9 +16,12 @@ export abstract class ReactiveInstance<T extends object> {
   // Does not exist at runtime.
   declare protected $data: T
 
+  // The store for persistent effects and update handlers.
+  protected [EffectScope.symbol] = new EffectScope()
+
   constructor() {
     if (allowAutoRetain()) {
-      EffectScope.retain(this)
+      this[EffectScope.symbol].setup()
     }
   }
 
@@ -27,8 +30,8 @@ export abstract class ReactiveInstance<T extends object> {
    * only need to call this if you created the instance outside of a React
    * component's render pass.
    */
-  release(): void {
-    EffectScope.release(this)
+  release() {
+    this[EffectScope.symbol].cleanup()
   }
 }
 

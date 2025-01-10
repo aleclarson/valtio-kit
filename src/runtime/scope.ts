@@ -1,12 +1,11 @@
-import { Cleanup } from './effects'
+import type { Cleanup } from './effects'
+import type { ReactiveClass } from './instance'
 
 let activeScope: EffectScope | null = null
 
-const scopes = new WeakMap<object, EffectScope>()
-
 export class EffectScope {
-  constructors: (() => Cleanup)[] = []
-  destructors: Cleanup[] = []
+  setupEffects: (() => Cleanup)[] | undefined
+  cleanupEffects: Cleanup[] | undefined
 
   enter() {
     activeScope = this
@@ -15,24 +14,18 @@ export class EffectScope {
     activeScope = null
   }
 
-  static assign(object: object, scope: EffectScope) {
-    scopes.set(object, scope)
+  setup() {
+    this.cleanupEffects = this.setupEffects?.map(setup => setup())
+  }
+  cleanup() {
+    this.cleanupEffects?.forEach(cleanup => cleanup())
+    this.cleanupEffects = undefined
   }
 
-  static schedule(constructor: () => Cleanup) {
-    activeScope!.constructors.push(constructor)
-  }
+  static readonly symbol = Symbol.for('valtio-kit.scope')
 
-  static retain(object: object) {
-    const scope = scopes.get(object)
-    scope?.constructors.forEach(setup => scope.destructors.push(setup()))
-  }
-
-  static release(object: object) {
-    const scope = scopes.get(object)
-    if (scope) {
-      scope.destructors.forEach(fn => fn())
-      scope.destructors.length = 0
-    }
+  static addSetupEffect(effect: () => Cleanup) {
+    activeScope!.setupEffects ||= []
+    activeScope!.setupEffects.push(effect)
   }
 }

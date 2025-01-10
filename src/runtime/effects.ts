@@ -12,7 +12,7 @@ export type Cleanup = () => void
  * You must return a cleanup function, which is called when the reactive
  * instance is released (i.e. when its parent component is unmounted).
  */
-export const onMount = EffectScope.schedule
+export const onMount = EffectScope.addSetupEffect
 
 /**
  * Declare a side effect that runs when the component mounts. Any reactive
@@ -23,7 +23,7 @@ export function watch(
   callback: () => void | Cleanup | Promise<void | Cleanup>,
   options?: { sync?: boolean }
 ) {
-  EffectScope.schedule(() => utils.watch(callback, options))
+  EffectScope.addSetupEffect(() => utils.watch(callback, options))
 }
 
 /**
@@ -65,7 +65,9 @@ export function subscribe(
   if (typeof target !== 'object' || target === null) {
     throw new Error('Target must be an object')
   }
-  EffectScope.schedule(() => valtio.subscribe(target, callback, notifyInSync))!
+  EffectScope.addSetupEffect(() =>
+    valtio.subscribe(target, callback, notifyInSync)
+  )!
 }
 
 /**
@@ -78,7 +80,7 @@ export function subscribeKey<T extends object, K extends keyof T>(
   callback: (value: T[K]) => void,
   notifyInSync?: boolean
 ) {
-  EffectScope.schedule(() =>
+  EffectScope.addSetupEffect(() =>
     utils.subscribeKey(target, key, callback, notifyInSync)
   )
 }
@@ -94,7 +96,7 @@ export const on: AddEventListener = (
   callback: (event: any) => any,
   options?: boolean | AddEventListenerOptions
 ) => {
-  EffectScope.schedule(() => {
+  EffectScope.addSetupEffect(() => {
     target.addEventListener(event, callback, options)
     return () => {
       target.removeEventListener(event, callback, options)

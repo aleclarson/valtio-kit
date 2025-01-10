@@ -68,9 +68,9 @@ export function useInstance(
 
   useEffect(() => {
     if (instance) {
-      EffectScope.retain(instance)
+      instance[EffectScope.symbol].setup()
       return () => {
-        EffectScope.release(instance)
+        instance[EffectScope.symbol].cleanup()
       }
     }
   }, [instance])
