@@ -29,7 +29,8 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "*.d.ts"
   ],
   "license": "MIT",
   "author": "Alec Larson",
