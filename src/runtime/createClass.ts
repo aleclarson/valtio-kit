@@ -18,9 +18,10 @@ import { EffectScope } from './scope'
  * `subscribeKey`, and `watch`.
  */
 export function createClass<Factory extends (...args: any[]) => object>(
-  factory: Factory
+  factory: Factory,
+  name?: string
 ): ReactiveClass<Factory> {
-  return class extends ReactiveInstance<ReturnType<Factory>> {
+  const ReactiveClass = class extends ReactiveInstance<ReturnType<Factory>> {
     constructor(...args: Parameters<Factory>) {
       super()
       const scope = new EffectScope()
@@ -34,6 +35,10 @@ export function createClass<Factory extends (...args: any[]) => object>(
       }
     }
   }
+  Object.defineProperty(ReactiveClass, 'name', {
+    value: name ?? factory.name,
+  })
+  return ReactiveClass
 }
 
 function copyDescriptors<T extends object>(target: T, source: object): T {

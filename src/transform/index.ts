@@ -429,6 +429,19 @@ export function transform(
         result.appendLeft(objectLiteral.range[1], ')')
       }
     }
+
+    // Append variable name to createClass call arguments.
+    const variableDeclarator = findParentNode(
+      root,
+      parent => parent.type === T.VariableDeclarator
+    ) as TSESTree.VariableDeclarator | undefined
+
+    if (variableDeclarator && variableDeclarator.id.type === T.Identifier) {
+      result.appendLeft(
+        root.range[1],
+        `, ${JSON.stringify(variableDeclarator.id.name)}`
+      )
+    }
   }
 
   if (!result.hasChanged()) {

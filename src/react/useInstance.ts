@@ -53,7 +53,12 @@ export function useInstance(
   let instance: ReactiveInstance<any> | null
   if (!fn || isClass(fn)) {
     const instanceRef = useRef<ReactiveInstance<any> | null>(null)
-    instance = fn ? (instanceRef.current ?? new fn(...args)) : null
+    instance = fn
+      ? instanceRef.current?.constructor !== fn
+        ? new fn(...args)
+        : instanceRef.current
+      : null
+
     useEffect(() => {
       instanceRef.current = instance
     })

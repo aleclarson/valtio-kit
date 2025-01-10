@@ -114,6 +114,63 @@ describe('createClass', () => {
     await userEvent.click(app.getByTestId('mutate'))
     expect(app.getByTestId('current')).toHaveTextContent('true')
   })
+
+  test('useInstance creates new instance when class argument changes', async () => {
+    type CounterClass = ReactiveClass<
+      (initialCount?: number) => { count: number; increment: () => void }
+    >
+    type CounterModule = {
+      Counter: CounterClass
+      CounterBy2: CounterClass
+    }
+
+    const { Counter, CounterBy2 } = await load<CounterModule>(dedent/* ts */ `
+      export const Counter = createClass((initialCount = 0) => {
+        let count = initialCount
+        return {
+          count,
+          increment() {
+            count++
+          },
+        }
+      })
+
+      export const CounterBy2 = createClass((initialCount = 0) => {
+        let count = initialCount
+        return {
+          count,
+          increment() {
+            count += 2
+          },
+        }
+      })
+    `)
+
+    function App({ Counter }: { Counter: CounterClass }) {
+      const counter = useSnapshot(useInstance(Counter, 1))
+
+      return (
+        <div>
+          <span data-testid="count">{counter.count}</span>
+          <button data-testid="increment" onClick={counter.increment}>
+            +
+          </button>
+        </div>
+      )
+    }
+
+    const app = render(<App Counter={Counter} />)
+    expect(app.getByTestId('count')).toHaveTextContent('1')
+
+    await userEvent.click(app.getByTestId('increment'))
+    expect(app.getByTestId('count')).toHaveTextContent('2')
+
+    app.rerender(<App Counter={CounterBy2} />)
+    expect(app.getByTestId('count')).toHaveTextContent('1')
+
+    await userEvent.click(app.getByTestId('increment'))
+    expect(app.getByTestId('count')).toHaveTextContent('3')
+  })
 })
 
 async function load<T extends Record<string, any>>(code: string) {
@@ -121,6 +178,7 @@ async function load<T extends Record<string, any>>(code: string) {
 
   const testId = `test.${md5Hex(code)}`
   const entryId = path.resolve(root, `src/${testId}.state.ts`)
+  fs.mkdirSync(path.dirname(entryId), { recursive: true })
   fs.writeFileSync(entryId, code)
 
   const configFile = path.resolve(root, 'vite.config.ts')
