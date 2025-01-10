@@ -15,6 +15,11 @@ export type Cleanup = () => void
 export const onMount = EffectScope.addSetupEffect
 
 /**
+ * Receive the latest arguments when the parent component rerenders.
+ */
+export const onUpdate = EffectScope.addUpdateEffect
+
+/**
  * Declare a side effect that runs when the component mounts. Any reactive
  * values used within its `callback` will be tracked, causing the callback to
  * rerun when any of them change.

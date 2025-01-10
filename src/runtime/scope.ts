@@ -5,6 +5,7 @@ let activeScope: EffectScope | null = null
 
 export class EffectScope {
   setupEffects: (() => Cleanup)[] | undefined
+  updateEffects: ((...args: any[]) => void)[] | undefined
   cleanupEffects: Cleanup[] | undefined
 
   enter() {
@@ -27,5 +28,12 @@ export class EffectScope {
   static addSetupEffect(effect: () => Cleanup) {
     activeScope!.setupEffects ||= []
     activeScope!.setupEffects.push(effect)
+  }
+
+  static addUpdateEffect<TClass extends ReactiveClass<any>>(
+    effect: (...args: ConstructorParameters<TClass>) => void
+  ) {
+    activeScope!.updateEffects ||= []
+    activeScope!.updateEffects.push(effect)
   }
 }

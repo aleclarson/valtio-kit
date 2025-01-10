@@ -270,6 +270,28 @@ const example = new StyleSheetExample()
 example.style.textContent = 'body { background-color: red; }'
 ```
 
+### `onUpdate`
+
+`onUpdate` is a function that runs a callback when a reactive instance has its `update` method called. It receives the latest factory arguments. This can happen one of two ways:
+
+- By calling the `update` method directly.
+- By a component re-rendering (but only if the `useInstance(MyClass, ...args)` hook signature is used). Notably, the `useInstance(() => new MyClass(), deps)` hook signature will never trigger `onUpdate` handlers.
+
+```ts
+const AudioPlayer = createClass((src: string) => {
+  const audio = new HTMLAudioElement()
+  // Update `audio.src` whenever `src` is changed.
+  audio.src = computed(() => src)
+
+  // By assigning to `src`, we make it reactive.
+  onUpdate<typeof AudioPlayer>((...args) => ([src] = args))
+
+  return {
+    /* ... */
+  }
+})
+```
+
 ### `subscribe`
 
 `subscribe` is a function that listens for changes to a given reactive object or even a reactive variable.

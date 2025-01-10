@@ -1,5 +1,5 @@
 import { unnest } from './atom'
-import { ReactiveClass, ReactiveInstance } from './instance'
+import { InstanceFactory, ReactiveClass, ReactiveInstance } from './instance'
 import { EffectScope } from './scope'
 
 /**
@@ -17,12 +17,12 @@ import { EffectScope } from './scope'
  * function: `getVersion`, `on`, `onMount`, `ref`, `snapshot`, `subscribe`,
  * `subscribeKey`, and `watch`.
  */
-export function createClass<Factory extends (...args: any[]) => object>(
-  factory: Factory,
+export function createClass<TFactory extends InstanceFactory>(
+  factory: TFactory,
   name?: string
-): ReactiveClass<Factory> {
-  const ReactiveClass = class extends ReactiveInstance<ReturnType<Factory>> {
-    constructor(...args: Parameters<Factory>) {
+): ReactiveClass<TFactory> {
+  const ReactiveClass = class extends ReactiveInstance<TFactory> {
+    constructor(...args: Parameters<TFactory>) {
       super()
       this[EffectScope.symbol].enter()
       try {
@@ -35,7 +35,7 @@ export function createClass<Factory extends (...args: any[]) => object>(
   Object.defineProperty(ReactiveClass, 'name', {
     value: name ?? factory.name,
   })
-  return ReactiveClass
+  return ReactiveClass as any
 }
 
 function copyDescriptors<T extends object>(target: T, source: object): T {

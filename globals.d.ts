@@ -55,6 +55,11 @@ declare global {
    */
   const onMount: typeof runtime.onMount
   /**
+   * Declare a side effect that runs when the component updates. It receives the
+   * latest arguments passed to the `useInstance` hook.
+   */
+  const onUpdate: typeof runtime.onUpdate
+  /**
    * A `ref` is useful in the rare instances you need to nest an object in a
    * `proxy` that is not wrapped in an inner proxy and, therefore, is not
    * tracked.

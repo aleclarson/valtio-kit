@@ -1,6 +1,7 @@
 import { isClass } from 'radashi'
 import { useEffect, useMemo, useRef } from 'react'
 import {
+  InstanceFactory,
   ReactiveClass,
   ReactiveInstance,
   ReactiveProxy,
@@ -10,37 +11,37 @@ import { EffectScope } from '../runtime/scope'
 /**
  * Create a new instance of the factory.
  */
-export function useInstance<Factory extends (...args: any[]) => object>(
-  constructor: ReactiveClass<Factory>,
-  ...args: Parameters<Factory>
-): ReactiveProxy<ReturnType<Factory>>
+export function useInstance<TFactory extends InstanceFactory>(
+  constructor: ReactiveClass<TFactory>,
+  ...args: Parameters<TFactory>
+): ReactiveProxy<TFactory>
 
 /**
  * Create a new instance of the factory. If you pass null or undefined, the hook
  * will return null.
  */
-export function useInstance<Factory extends (...args: any[]) => object>(
-  constructor: ReactiveClass<Factory> | null | undefined,
-  ...args: Parameters<Factory>
-): ReactiveProxy<ReturnType<Factory>> | null
+export function useInstance<TFactory extends InstanceFactory>(
+  constructor: ReactiveClass<TFactory> | null | undefined,
+  ...args: Parameters<TFactory>
+): ReactiveProxy<TFactory> | null
 
 /**
  * Create a new instance, using a dependency array for greater control over when
  * the instance should be re-created.
  */
-export function useInstance<Factory extends (...args: any[]) => object>(
-  create: () => ReactiveInstance<Factory>,
+export function useInstance<TFactory extends InstanceFactory>(
+  create: () => ReactiveInstance<TFactory>,
   deps: readonly any[]
-): ReactiveProxy<ReturnType<Factory>>
+): ReactiveProxy<TFactory>
 
 /**
  * Create a new instance, using a dependency array for greater control over when
  * the instance should be re-created.
  */
-export function useInstance<Factory extends (...args: any[]) => object>(
-  create: () => ReactiveInstance<Factory> | null,
+export function useInstance<TFactory extends InstanceFactory>(
+  create: () => ReactiveInstance<TFactory> | null,
   deps: readonly any[]
-): ReactiveProxy<ReturnType<Factory>> | null
+): ReactiveProxy<TFactory> | null
 
 export function useInstance(
   fn:
@@ -48,7 +49,7 @@ export function useInstance(
     | (() => ReactiveInstance<any> | null)
     | null
     | undefined,
-  ...args: any[]
+  ...args: unknown[]
 ) {
   let instance: ReactiveInstance<any> | null
   if (!fn || isClass(fn)) {
@@ -61,6 +62,7 @@ export function useInstance(
 
     useEffect(() => {
       instanceRef.current = instance
+      instance?.update(...args)
     })
   } else {
     instance = useMemo(fn, args[0] as readonly any[])

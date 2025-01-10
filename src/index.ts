@@ -11,6 +11,7 @@ export { createClass } from './runtime/createClass'
 export {
   on,
   onMount,
+  onUpdate,
   subscribe,
   subscribeKey,
   watch,
