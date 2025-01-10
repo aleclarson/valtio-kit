@@ -129,6 +129,7 @@ There are a few rules to keep in mind inside a `createClass` factory function:
 
 - You must return an object literal.
 - Root-level `let` and `var` declarations are _deeply_ reactive by default.
+- If you re-assign a factory parameter, it becomes _deeply_ reactive. Notably, this behavior does not apply to _properties_ of object/array parameters (unless you also re-assign the parameter itself).
 - When you return a non-`const` variable as a property, a one-way binding is implicitly created, so assigning to the variable will re-render any components that use the property.
 - Certain objects are _deeply_ reactive when assigned to root-level variables. This is even true when assignment occurs inside a nested function. Supported object types include:
   - plain objects

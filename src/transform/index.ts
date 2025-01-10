@@ -9,30 +9,6 @@ import MagicString from 'magic-string'
 import { isAbsolute } from 'path'
 import { castArray } from 'radashi'
 
-const isBlockScope = isNodeOfTypes([
-  T.ForStatement,
-  T.ForInStatement,
-  T.ForOfStatement,
-  T.WhileStatement,
-  T.DoWhileStatement,
-  T.ArrowFunctionExpression,
-  T.FunctionDeclaration,
-  T.FunctionExpression,
-  T.BlockStatement,
-])
-
-const globalFunctions = [
-  'computed',
-  'getVersion',
-  'on',
-  'onMount',
-  'ref',
-  'snapshot',
-  'subscribe',
-  'subscribeKey',
-  'watch',
-]
-
 export function transform(
   code: string,
   filePath: string,
@@ -369,6 +345,9 @@ export function transform(
           parent: parentBlock ? scopes.get(parentBlock) : undefined,
         }
         scopes.set(node, scope)
+        const onIdentifier = (node: TSESTree.Identifier) => {
+          scope.names.push(node.name)
+        }
 
         const block = node
         switch (block.type) {
@@ -376,27 +355,27 @@ export function transform(
           case T.FunctionExpression:
           case T.FunctionDeclaration:
             for (const param of block.params) {
-              trackBindingPattern(param, scope)
+              findBindingsInDeclarator(param, onIdentifier)
             }
           /* fallthrough */
           case T.WhileStatement:
           case T.DoWhileStatement:
-            trackImmediateBindings(
+            findBindingsInArray(
               block.body.type === T.BlockStatement
                 ? block.body.body
                 : castArray(block.body),
-              scope
+              onIdentifier
             )
             break
           case T.ForStatement:
             // Track loop variable
             if (block.init?.type === T.VariableDeclaration) {
               for (const decl of block.init.declarations) {
-                trackBindingPattern(decl.id, scope)
+                findBindingsInDeclarator(decl.id, onIdentifier)
               }
             }
             if (block.body.type === T.BlockStatement) {
-              trackImmediateBindings(block.body.body, scope)
+              findBindingsInArray(block.body.body, onIdentifier)
             }
             break
           case T.ForInStatement:
@@ -404,20 +383,21 @@ export function transform(
             // Track loop variable
             if (block.left.type === T.VariableDeclaration) {
               for (const decl of block.left.declarations) {
-                trackBindingPattern(decl.id, scope)
+                findBindingsInDeclarator(decl.id, onIdentifier)
               }
             }
             if (block.body.type === T.BlockStatement) {
-              trackImmediateBindings(block.body.body, scope)
+              findBindingsInArray(block.body.body, onIdentifier)
             }
             break
           case T.BlockStatement:
-            trackImmediateBindings(block.body, scope)
+            findBindingsInArray(block.body, onIdentifier)
             break
         }
       }
     }
 
+    prepareDynamicParams(root, result, imports, atoms)
     simpleTraverse(root.body, { enter }, true)
 
     // Object literals are wrapped with `unnest(…)` except for the topmost
@@ -479,6 +459,37 @@ export function transform(
   }
 }
 
+const isBlockScope = isNodeOfTypes([
+  T.ForStatement,
+  T.ForInStatement,
+  T.ForOfStatement,
+  T.WhileStatement,
+  T.DoWhileStatement,
+  T.ArrowFunctionExpression,
+  T.FunctionDeclaration,
+  T.FunctionExpression,
+  T.BlockStatement,
+])
+
+const isAssignmentLeft = isNodeOfTypes([
+  T.ArrayPattern,
+  T.ObjectPattern,
+  T.Identifier,
+])
+
+const globalFunctions = [
+  'computed',
+  'getVersion',
+  'on',
+  'onMount',
+  'onUpdate',
+  'ref',
+  'snapshot',
+  'subscribe',
+  'subscribeKey',
+  'watch',
+]
+
 function throwSyntaxError(message: string, node: TSESTree.Node): never {
   const error: any = new SyntaxError(message)
   error.loc = node.loc.start
@@ -537,13 +548,19 @@ function isBeingAssigned(node: TSESTree.Identifier, root?: TSESTree.Node) {
     ident = ident.parent
   }
 
-  return Boolean(
-    assignment &&
-      ((assignment.type === T.AssignmentExpression &&
-        ident === assignment.left) ||
-        (assignment.type === T.UpdateExpression &&
-          ident === assignment.argument))
-  )
+  if (!assignment) {
+    return false
+  }
+  if (assignment.type === T.AssignmentExpression) {
+    return (
+      isAssignmentLeft(assignment.left) &&
+      findBindingsInDeclarator(assignment.left, id => id === ident)
+    )
+  }
+  if (assignment.type === T.UpdateExpression) {
+    return ident === assignment.argument
+  }
+  return false
 }
 
 type BlockScope = {
@@ -552,36 +569,53 @@ type BlockScope = {
   parent: BlockScope | undefined
 }
 
-function trackBindingPattern(
+function findBindingsInDeclarator(
   node: TSESTree.Parameter | TSESTree.DestructuringPattern,
-  scope: BlockScope
-) {
+  onIdentifier: (node: TSESTree.Identifier) => boolean | void
+): boolean {
   if (node.type === T.Identifier) {
-    scope.names.push(node.name)
-  } else if (node.type === T.RestElement) {
-    trackBindingPattern(node.argument, scope)
-  } else if (node.type === T.ArrayPattern) {
+    return Boolean(onIdentifier(node))
+  }
+  if (node.type === T.RestElement) {
+    return findBindingsInDeclarator(node.argument, onIdentifier)
+  }
+  if (node.type === T.AssignmentPattern) {
+    return findBindingsInDeclarator(node.left, onIdentifier)
+  }
+  if (node.type === T.ArrayPattern) {
     for (const element of node.elements) {
-      element && trackBindingPattern(element, scope)
+      if (element && findBindingsInDeclarator(element, onIdentifier)) {
+        return true
+      }
     }
   } else if (node.type === T.ObjectPattern) {
     for (const property of node.properties) {
-      if (property.type === T.RestElement) {
-        trackBindingPattern(property.argument, scope)
-      } else if (property.key.type === T.Identifier) {
-        trackBindingPattern(property.key, scope)
+      const found =
+        property.type === T.RestElement
+          ? findBindingsInDeclarator(property.argument, onIdentifier)
+          : property.value.type === T.Identifier
+            ? Boolean(onIdentifier(property.value))
+            : property.value.type === T.ObjectPattern ||
+                property.value.type === T.ArrayPattern
+              ? findBindingsInDeclarator(property.value, onIdentifier)
+              : undefined
+
+      if (found === true) {
+        return true
       }
     }
-  } else if (node.type === T.AssignmentPattern) {
-    trackBindingPattern(node.left, scope)
   }
+  return false
 }
 
-function trackImmediateBindings(body: TSESTree.Node[], scope: BlockScope) {
+function findBindingsInArray(
+  body: TSESTree.Node[],
+  onIdentifier: (node: TSESTree.Identifier) => void
+) {
   for (const node of body) {
     if (node.type === T.VariableDeclaration) {
       for (const decl of node.declarations) {
-        trackBindingPattern(decl.id, scope)
+        findBindingsInDeclarator(decl.id, onIdentifier)
       }
     }
   }
@@ -595,4 +629,52 @@ function findBindingFromScope(name: string, scope: BlockScope | undefined) {
     scope = scope.parent
   }
   return false
+}
+
+function prepareDynamicParams(
+  root: TSESTree.ArrowFunctionExpression | TSESTree.FunctionExpression,
+  result: MagicString,
+  imports: Set<string>,
+  atoms: Set<string>
+) {
+  const params = new Set<string>()
+  const dynamicParams = new Set<string>()
+
+  for (const param of root.params) {
+    findBindingsInDeclarator(param, id => {
+      params.add(id.name)
+    })
+  }
+
+  const enter = (node: TSESTree.Node) => {
+    if (
+      node.type === T.UpdateExpression &&
+      node.argument.type === T.Identifier &&
+      params.has(node.argument.name)
+    ) {
+      dynamicParams.add(node.argument.name)
+    } else if (
+      node.type === T.AssignmentExpression &&
+      isAssignmentLeft(node.left)
+    ) {
+      findBindingsInDeclarator(node.left, id => {
+        if (params.has(id.name)) {
+          dynamicParams.add(id.name)
+          return true
+        }
+      })
+    }
+  }
+
+  for (const node of castArray(root.body)) {
+    simpleTraverse(node, { enter })
+  }
+
+  // Dynamic parameters are re-assigned with `foo = $atom(foo)` at the start of
+  // the factory function body.
+  for (const name of dynamicParams) {
+    result.appendLeft(root.body.range[0] + 1, `\n  ${name} = $atom(${name});`)
+    imports.add('$atom')
+    atoms.add(name)
+  }
 }
