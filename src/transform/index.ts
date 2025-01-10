@@ -73,6 +73,13 @@ export function transform(
   const imports = new Set<string>()
 
   for (const root of constructors) {
+    if (root.body.type !== T.BlockStatement) {
+      throwSyntaxError(
+        'Every `createClass` factory function must have curly braces',
+        root.body
+      )
+    }
+
     const atoms = new Set<string>()
     const proxies = new Set<string>()
     const objectsContainingAtoms = new Set<TSESTree.Node>()
