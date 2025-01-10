@@ -1,4 +1,4 @@
-import * as runtime from './dist/runtime'
+import * as runtime from './dist/index.js'
 
 declare global {
   /**
