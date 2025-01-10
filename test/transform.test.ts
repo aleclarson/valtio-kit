@@ -113,6 +113,31 @@ describe('valtio-kit', () => {
     `)
   })
 
+  test('dynamic param', async () => {
+    const code = await transform('dynamic-param.ts')
+    expect(code).toMatchInlineSnapshot(`
+      "import { $atom, onUpdate, createClass } from '/@fs//path/to/valtio-kit/runtime.js'
+      export const Test1 = createClass((a, b = 0) => {
+        a = $atom(a);
+        onUpdate((...args) => [a.value] = args);
+        return {};
+      }, "Test1");
+      export const Test2 = createClass(({ a, b = 0 }) => {
+        a = $atom(a);
+        onUpdate((...args) => ({ a: a.value } = args[0]));
+        return {};
+      }, "Test2");
+      export const Test3 = createClass((a, b = 0) => {
+        a = $atom(a);
+        onUpdate((...args) => {
+          a.value = args[0];
+        });
+        return {};
+      }, "Test3");
+      "
+    `)
+  })
+
   test('computed assignment', async () => {
     const code = await transform('computed-assignment.ts')
     expect(code).toMatchInlineSnapshot(`
