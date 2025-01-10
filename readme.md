@@ -113,7 +113,7 @@ import { Counter } from './Counter.state'
 export const counter = new Counter(1)
 ```
 
-If your global instance sets up any persistent effects (i.e. `watch`, `on`, etc.), you need to clean up the effects when Vite HMR is triggered.
+If your global instance sets up any persistent effects (i.e. `computed`, `watch`, `on`, etc.), you need to clean up the effects when Vite HMR is triggered.
 
 ```ts
 import.meta.hot?.dispose(() => counter.release())
@@ -150,7 +150,7 @@ The following functions are implicitly available within every `createClass` fact
 `computed` is a function that subscribes to reactive values and returns a new reactive value.
 
 > [!NOTE]
-> Computed values **cannot** be declared just anywhere. You can only call `computed` with the following syntax and it must be declared at the root level of a `createClass` factory function:
+> Computed values _cannot_ be declared just anywhere. You can only call `computed` with the following syntax and it must be declared at the **root level** of a `createClass` factory function:
 >
 > ```ts
 > // This is a readonly, computed variable.
@@ -158,6 +158,9 @@ The following functions are implicitly available within every `createClass` fact
 >
 > // This is a readonly, computed property.
 > const foo = { bar: computed(() => …) }
+>
+> // This is a computed property assignment.
+> foo.bar = computed(() => …)
 > ```
 
 ```ts

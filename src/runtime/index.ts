@@ -1,6 +1,6 @@
 export { proxy as $proxy } from 'valtio'
 export { proxyMap as $proxyMap, proxySet as $proxySet } from 'valtio/utils'
 export { atom as $atom, unnest as $unnest } from './atom'
-export * from './computed'
+export { assign as $assign, computed } from './computed'
 export * from './createClass'
 export * from './effects'

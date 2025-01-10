@@ -305,6 +305,67 @@ export function transform(
               return
             }
 
+            // Support computed property assignments.
+            if (
+              node.parent.type === T.AssignmentExpression &&
+              node === node.parent.right
+            ) {
+              if (node.parent.left.type !== T.MemberExpression) {
+                throwSyntaxError(
+                  'Computed assignments must be property assignments',
+                  node
+                )
+              }
+              if (node.parent.operator !== '=') {
+                throwSyntaxError(
+                  'Computed assignment must use "=" operator',
+                  node
+                )
+              }
+
+              const key = node.parent.left.property
+
+              // Replace "." with "," because the object and property parts are
+              // being split into separate arguments.
+              result.overwrite(key.range[0] - 1, key.range[0], ', ')
+
+              // Replace "=" with "," because the compute function is the third
+              // argument to the $assign call.
+              result.overwrite(
+                key.range[1],
+                code.indexOf('=', key.range[0]) + 1,
+                ','
+              )
+
+              if (key.type === T.Identifier) {
+                // Stringify the property name.
+                result.overwrite(
+                  key.range[0],
+                  key.range[1],
+                  JSON.stringify(key.name)
+                )
+              } else if (key.type === T.Literal) {
+                // Remove square braces for computed property keys.
+                result.remove(key.range[0] - 1, key.range[0])
+              } else {
+                // The property is dynamic.
+                result.appendLeft(key.range[0], '() => ')
+              }
+
+              // The `computed` call is replaced with an $assign call.
+              result.remove(...node.callee.range)
+
+              let prefix = ''
+              if (node.parent.left.object.type !== T.Identifier) {
+                prefix = '() => '
+              }
+
+              imports.add('$assign')
+              result.prependLeft(node.parent.range[0], '$assign(' + prefix)
+              result.appendRight(node.parent.range[1], ')')
+              return
+            }
+
             const variableDeclarator =
               node.parent.type === T.VariableDeclarator
                 ? node.parent

@@ -1,3 +1,4 @@
+import { isFunction } from 'radashi'
 import { watch } from 'valtio/utils'
 import { atom } from './atom'
 import { EffectScope } from './scope'
@@ -19,4 +20,30 @@ export function computed<T>(fn: () => T): T {
     })
   })
   return result as any
+}
+
+/** @internal */
+export function assign(
+  object: any,
+  key: PropertyKey | (() => PropertyKey),
+  compute: (get: (value: object) => object) => unknown
+) {
+  object = toGetter(object)
+  key = toGetter(key)
+
+  // The initial value must be computed immediately.
+  let memo = (object()[key()] = compute(f => f))
+
+  EffectScope.addSetupEffect(() => {
+    return watch(get => {
+      // Only assign if the computed value has changed.
+      if (!Object.is(memo, (memo = compute(get)))) {
+        object()[key()] = memo
+      }
+    })
+  })
+}
+
+function toGetter<T>(value: T | (() => T)) {
+  return isFunction(value) ? value : () => value
 }

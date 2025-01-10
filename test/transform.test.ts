@@ -112,6 +112,21 @@ describe('valtio-kit', () => {
       "
     `)
   })
+
+  test('computed assignment', async () => {
+    const code = await transform('computed-assignment.ts')
+    expect(code).toMatchInlineSnapshot(`
+      "import { $atom, computed, $assign, onUpdate, createClass } from '/@fs//path/to/valtio-kit/runtime.js'
+      export const AudioPlayer = createClass((src) => {
+        src = $atom(src);
+        const audio = new HTMLAudioElement();
+        $assign(audio, "src", (($get) => $get(src).value));
+        onUpdate((...args) => [src.value] = args);
+        return {};
+      }, "AudioPlayer");
+      "
+    `)
+  })
 })
 
 async function transform(fixtureId: string, options: Options = {}) {
