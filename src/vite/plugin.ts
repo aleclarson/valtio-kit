@@ -36,7 +36,14 @@ export function valtioKit(options: Options = {}): Plugin {
   return {
     name: 'valtio-kit/transform',
     async transform(code, id) {
-      return filter(id) ? transform(code, id, options) : null
+      if (!filter(id)) {
+        return null
+      }
+      const result = transform(code, id, options)
+      if (result && options.onTransform) {
+        options.onTransform(result.code, id)
+      }
+      return result
     },
   }
 }
