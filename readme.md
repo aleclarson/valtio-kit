@@ -56,7 +56,7 @@ export default defineConfig({
 
 </details>
 
-4. Call `createClass` to define a reactive class. For example, here's a simple counter:
+4. Call `createClass` to define a reactive class. For example, here's a simple counter (please note that there's much, much more you can do with `createClass`):
 
 ```ts
 export const Counter = createClass((initialCount = 0) => {
@@ -84,10 +84,11 @@ import { useInstance, useSnapshot } from 'valtio-kit/react'
 import { Counter } from './Counter.state'
 
 export function App() {
-  // Create a counter with an initial count of 100.
+  // Create a counter with an initial count of 100. Any persistent effects set up
+  // by the instance will be cleaned up when the component unmounts.
   const counter = useInstance(Counter, 100)
 
-  // Subscribe to the counter's data.
+  // Subscribe to the counter's data. Only the data you use will trigger re-renders.
   const { count, increment, decrement } = useSnapshot(counter)
 
   return (
@@ -140,6 +141,18 @@ There are a few rules to keep in mind inside a `createClass` factory function:
 - The factory function can have arguments. Any kind and any number of arguments are supported.
 - Passing a reactive instance into a factory function is not currently supported.
 - _Variable shadowing_ is currently discouraged, as some edge cases have not yet been ironed out.
+
+### Further Reading
+
+Check out the `docs/` folder for more information.
+
+- [Variables](/docs/variables.md)
+- [Parameters](/docs/parameters.md)
+- [Objects](/docs/objects.md)
+- [Hooks](/docs/hooks.md)
+- [Computed Bindings](/docs/computed.md)
+
+It's also recommended to read the API reference below.
 
 ## API
 
