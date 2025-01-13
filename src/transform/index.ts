@@ -102,6 +102,22 @@ export function transform(
     const isAtomOrProxyReference = (node: TSESTree.Identifier) =>
       (atoms.has(node.name) || proxies.has(node.name)) && isRootReference(node)
 
+    const isReactiveAssignment = (
+      assignment: TSESTree.AssignmentExpression | TSESTree.VariableDeclarator
+    ) => {
+      if (assignment.type === T.VariableDeclarator) {
+        return (
+          assignment.id.type === T.Identifier && isRootReference(assignment.id)
+        )
+      }
+      let id = assignment.left
+      while (id.type === T.MemberExpression) {
+        id = id.object
+      }
+      // TODO: check for ref(…) objects which disable reactivity.
+      return id.type === T.Identifier && isRootReference(id)
+    }
+
     const enter = (node: TSESTree.Node, parent: TSESTree.Node | undefined) => {
       if (node.type === T.Identifier) {
         if (!parent) return
@@ -203,26 +219,32 @@ export function transform(
               : null
 
         if (proxyFunc) {
-          imports.add(proxyFunc)
-
-          // Remove the 'new' keyword.
-          result.remove(node.range[0], node.callee.range[0])
-
-          // Overwrite the callee with the proxy function.
-          result.overwrite(...node.callee.range, proxyFunc)
-
-          const variableDeclarator = findParentNode(
+          const assignment = findParentNode(
             node,
-            parent => parent.type === T.VariableDeclarator,
+            parent =>
+              parent.type === T.VariableDeclarator ||
+              parent.type === T.AssignmentExpression,
             root
-          ) as TSESTree.VariableDeclarator | undefined
+          ) as
+            | TSESTree.VariableDeclarator
+            | TSESTree.AssignmentExpression
+            | undefined
 
-          if (
-            variableDeclarator &&
-            variableDeclarator.id.type === T.Identifier &&
-            variableDeclarator.init === node
-          ) {
-            proxies.add(variableDeclarator.id.name)
+          // Skip the transform if not being assigned to a root-level variable.
+          if (assignment && isReactiveAssignment(assignment)) {
+            if (
+              assignment.type === T.VariableDeclarator &&
+              assignment.id.type === T.Identifier
+            ) {
+              proxies.add(assignment.id.name)
+            }
+            imports.add(proxyFunc)
+
+            // Remove the 'new' keyword.
+            result.remove(node.range[0], node.callee.range[0])
+
+            // Overwrite the callee with the proxy function.
+            result.overwrite(...node.callee.range, proxyFunc)
           }
         }
       }
