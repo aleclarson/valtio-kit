@@ -21,7 +21,10 @@ export function transform(
     range: true,
   })
 
-  const constructors: TSESTree.ArrowFunctionExpression[] = []
+  const constructors: (
+    | TSESTree.ArrowFunctionExpression
+    | TSESTree.FunctionExpression
+  )[] = []
   const skipped = new WeakSet<TSESTree.Node>()
 
   const enter = (node: TSESTree.Node, parent: TSESTree.Node | undefined) => {
@@ -36,7 +39,8 @@ export function transform(
     if (
       node.type === T.CallExpression &&
       hasCalleeNamed(node, 'createClass') &&
-      node.arguments[0].type === T.ArrowFunctionExpression
+      (node.arguments[0].type === T.ArrowFunctionExpression ||
+        node.arguments[0].type === T.FunctionExpression)
     ) {
       constructors.push(node.arguments[0])
       skipped.add(node)
