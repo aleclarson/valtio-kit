@@ -40,6 +40,25 @@ describe('valtio-kit', () => {
     `)
   })
 
+  test('destructured variable', async () => {
+    const code = await transform('destructured-variable.ts')
+    expect(code).toMatchInlineSnapshot(`
+      "import { $atom, createClass } from '/@fs//path/to/valtio-kit/runtime.js'
+      export const Point2D = createClass(({ x, y }, options) => {
+        x = $atom(x);
+        const { rotation = 0 } = options;
+        let { scale = 1, origin = { x: 0, y: 0 } } = options; scale = $atom(scale); origin = $atom(origin);
+        let [foo, bar] = options.array; foo = $atom(foo); bar = $atom(bar);
+        return {
+          moveX(distance) {
+            x.value += distance;
+          }
+        };
+      }, "Point2D");
+      "
+    `)
+  })
+
   test('return', async () => {
     const code = await transform('return.ts')
     expect(code).toMatchInlineSnapshot(`

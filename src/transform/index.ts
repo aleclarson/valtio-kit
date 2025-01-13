@@ -262,65 +262,79 @@ export function transform(
           scope = scope.parent
         }
 
-        if (node.id.type !== T.Identifier) {
-          return // Ignore destructuring.
-        }
+        if (node.id.type === T.Identifier) {
+          if (!node.init) {
+            atoms.add(node.id.name)
+            result.appendLeft(node.id.range[1], ` = $atom()`)
+            imports.add('$atom')
+            return
+          }
 
-        if (!node.init) {
-          atoms.add(node.id.name)
-          result.appendLeft(node.id.range[1], ` = $atom()`)
-          imports.add('$atom')
-          return
-        }
+          const varKind = (parent as TSESTree.VariableDeclaration).kind
 
-        const varKind = (parent as TSESTree.VariableDeclaration).kind
+          if (
+            varKind === 'const' &&
+            (node.init.type === T.ArrowFunctionExpression ||
+              node.init.type === T.FunctionExpression)
+          ) {
+            // Ignore function variables (if constant).
+            return
+          }
 
-        if (
-          varKind === 'const' &&
-          (node.init.type === T.ArrowFunctionExpression ||
-            node.init.type === T.FunctionExpression)
-        ) {
-          // Ignore function variables (if constant).
-          return
-        }
+          let prefix = ''
+          let suffix = ''
 
-        let prefix = ''
-        let suffix = ''
+          let computedProperty: TSESTree.Property | undefined
+          if (node.init.type === T.ObjectExpression) {
+            computedProperty = node.init.properties.find(
+              property =>
+                property.type === T.Property &&
+                property.value.type === T.CallExpression &&
+                hasCalleeNamed(property.value, 'computed')
+            ) as TSESTree.Property | undefined
 
-        let computedProperty: TSESTree.Property | undefined
-        if (node.init.type === T.ObjectExpression) {
-          computedProperty = node.init.properties.find(
-            property =>
-              property.type === T.Property &&
-              property.value.type === T.CallExpression &&
-              hasCalleeNamed(property.value, 'computed')
-          ) as TSESTree.Property | undefined
+            if (computedProperty) {
+              imports.add('$unnest')
+              prefix = '$unnest('
+              suffix = ')'
+            }
+          }
 
-          if (computedProperty) {
-            imports.add('$unnest')
-            prefix = '$unnest('
-            suffix = ')'
+          if (varKind !== 'const') {
+            atoms.add(node.id.name)
+            imports.add('$atom')
+            prefix = '$atom(' + prefix
+            suffix = suffix + ')'
+          } else if (
+            node.init.type === T.ArrayExpression ||
+            (node.init.type === T.ObjectExpression && !computedProperty)
+          ) {
+            proxies.add(node.id.name)
+            imports.add('$proxy')
+            prefix = '$proxy(' + prefix
+            suffix = suffix + ')'
+          }
+
+          if (prefix) {
+            result.prependLeft(node.init.range[0], prefix)
+            result.appendRight(node.init.range[1], suffix)
           }
         }
-
-        if (varKind !== 'const') {
-          atoms.add(node.id.name)
-          imports.add('$atom')
-          prefix = '$atom(' + prefix
-          suffix = suffix + ')'
-        } else if (
-          node.init.type === T.ArrayExpression ||
-          (node.init.type === T.ObjectExpression && !computedProperty)
-        ) {
-          proxies.add(node.id.name)
-          imports.add('$proxy')
-          prefix = '$proxy(' + prefix
-          suffix = suffix + ')'
-        }
-
-        if (prefix) {
-          result.prependLeft(node.init.range[0], prefix)
-          result.appendRight(node.init.range[1], suffix)
+        // Handle variables declared with destructuring.
+        else if (isReassignable(node)) {
+          const names: string[] = []
+          findBindingsInDeclarator(node.id, id => {
+            names.push(id.name)
+          })
+          if (names.length > 1) {
+            imports.add('$atom')
+            for (const name of names) {
+              result.appendLeft(
+                node.parent.range[1],
+                ` ${name} = $atom(${name});`
+              )
+            }
+          }
         }
       }
       // Add imports for global functions being used.
@@ -427,7 +441,7 @@ export function transform(
                 node
               )
             }
-            if (variableDeclarator.parent.kind !== 'const') {
+            if (isReassignable(variableDeclarator)) {
               throwSyntaxError(
                 `Expected 'const' keyword in computed variable declaration`,
                 variableDeclarator.parent
@@ -710,7 +724,8 @@ function findBindingsInDeclarator(
           : property.value.type === T.Identifier
             ? Boolean(onIdentifier(property.value))
             : property.value.type === T.ObjectPattern ||
-                property.value.type === T.ArrayPattern
+                property.value.type === T.ArrayPattern ||
+                property.value.type === T.AssignmentPattern
               ? findBindingsInDeclarator(property.value, onIdentifier)
               : undefined
 
@@ -795,4 +810,8 @@ function prepareDynamicParams(
     imports.add('$atom')
     atoms.add(name)
   }
+}
+
+function isReassignable(node: TSESTree.VariableDeclarator) {
+  return node.parent.kind === 'let' || node.parent.kind === 'var'
 }
