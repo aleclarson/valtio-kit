@@ -60,7 +60,6 @@ export function transform(
     const proxies = new Set<string>()
     const objectsContainingAtoms = new Set<TSESTree.Node>()
     const watchCallbacks = new Set<TSESTree.Node>()
-    const nestedNodes = new WeakSet<TSESTree.Node>()
     const scopes = new Map<TSESTree.Node, BlockScope>()
 
     const closestScope = (node: TSESTree.Node) => {
@@ -89,9 +88,6 @@ export function transform(
     }
 
     const enter = (node: TSESTree.Node, parent: TSESTree.Node | undefined) => {
-      if (parent && nestedNodes.has(parent)) {
-        nestedNodes.add(node)
-      }
       if (node.type === T.Identifier) {
         if (!parent) return
 
@@ -168,8 +164,16 @@ export function transform(
           result.appendLeft(node.range[1], '.value')
         }
       }
-      // The createClass callback must return an object literal.
-      else if (node.type === T.ReturnStatement && !nestedNodes.has(node)) {
+      // The factory function must return an object literal.
+      else if (node.type === T.ReturnStatement) {
+        let scope = closestScope(node)!
+        while (scope.parent) {
+          if (functionScopes.includes(scope.node.type)) {
+            // Ignore return statements inside function bodies.
+            return
+          }
+          scope = scope.parent
+        }
         if (!node.argument || node.argument.type !== T.ObjectExpression) {
           throwSyntaxError('You must return an object literal', node)
         }
@@ -211,7 +215,19 @@ export function transform(
         }
       }
       // Top-level variables are transformed into refs (usually).
-      else if (node.type === T.VariableDeclarator && !nestedNodes.has(node)) {
+      else if (node.type === T.VariableDeclarator) {
+        let scope = closestScope(node)!
+        while (scope.parent) {
+          if (
+            functionScopes.includes(scope.node.type) ||
+            loopScopes.includes(scope.node.type)
+          ) {
+            // Ignore variable declarations inside function bodies or loops.
+            return
+          }
+          scope = scope.parent
+        }
+
         if (node.id.type !== T.Identifier) {
           return // Ignore destructuring.
         }
@@ -391,11 +407,6 @@ export function transform(
       }
       // Scope tracking
       else if (isBlockScope(node)) {
-        // Prevent variables in nested blocks from being transformed.
-        if (parent) {
-          nestedNodes.add(node)
-        }
-
         // Find parent scope.
         const parentBlock = findParentNode(node, isBlockScope)
 
@@ -520,15 +531,23 @@ export function transform(
   }
 }
 
-const isBlockScope = isNodeOfTypes([
+const loopScopes = [
   T.ForStatement,
   T.ForInStatement,
   T.ForOfStatement,
   T.WhileStatement,
   T.DoWhileStatement,
+]
+
+const functionScopes = [
   T.ArrowFunctionExpression,
   T.FunctionDeclaration,
   T.FunctionExpression,
+]
+
+const isBlockScope = isNodeOfTypes([
+  ...loopScopes,
+  ...functionScopes,
   T.BlockStatement,
 ])
 
