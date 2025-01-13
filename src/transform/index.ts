@@ -87,6 +87,21 @@ export function transform(
       return Boolean(watchCallback && !isBeingAssigned(node, watchCallback))
     }
 
+    const isRootScope = (scope: BlockScope) => {
+      return scope.parent === undefined
+    }
+
+    const isRootReference = (node: TSESTree.Identifier) => {
+      const scope = closestScope(node)!
+      return findBindingFromScope(node.name, scope, isRootScope)
+    }
+
+    const isAtomReference = (node: TSESTree.Identifier) =>
+      atoms.has(node.name) && isRootReference(node)
+
+    const isAtomOrProxyReference = (node: TSESTree.Identifier) =>
+      (atoms.has(node.name) || proxies.has(node.name)) && isRootReference(node)
+
     const enter = (node: TSESTree.Node, parent: TSESTree.Node | undefined) => {
       if (node.type === T.Identifier) {
         if (!parent) return
@@ -123,7 +138,7 @@ export function transform(
           if (returnStmt && returnStmt.parent === root.body) {
             // Allow $atom objects to be returned, where createClass can
             // subscribe to them.
-            if (atoms.has(node.name)) {
+            if (isAtomReference(node)) {
               objectsContainingAtoms.add(objectLiteral)
             }
             return
@@ -131,7 +146,7 @@ export function transform(
 
           // Handle shorthand property definitions.
           if (node === parent.value && node.range[0] === parent.key.range[0]) {
-            if (atoms.has(node.name)) {
+            if (isAtomReference(node)) {
               let name = node.name
               if (isBeingWatched(node, root)) {
                 name = '$get(' + name + ')'
@@ -142,10 +157,7 @@ export function transform(
           }
         }
 
-        if (
-          (atoms.has(node.name) || proxies.has(node.name)) &&
-          isBeingWatched(node, root)
-        ) {
+        if (isAtomOrProxyReference(node) && isBeingWatched(node, root)) {
           result.appendLeft(node.range[0], '$get(')
           result.appendLeft(node.range[1], ')')
         }
@@ -701,10 +713,14 @@ function findBindingsInArray(
   }
 }
 
-function findBindingFromScope(name: string, scope: BlockScope | undefined) {
+function findBindingFromScope(
+  name: string,
+  scope: BlockScope | undefined,
+  test?: (scope: BlockScope) => boolean
+) {
   while (scope) {
     if (scope.names.includes(name)) {
-      return true
+      return !test || test(scope)
     }
     scope = scope.parent
   }

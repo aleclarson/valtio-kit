@@ -140,7 +140,6 @@ There are a few rules to keep in mind inside a `createClass` factory function:
 - Any time you construct a new `Map` or `Set` anywhere inside your factory function, it will be made _deeply_ reactive.
 - The factory function can have arguments. Any kind and any number of arguments are supported.
 - Passing a reactive instance into a factory function is not currently supported.
-- _Variable shadowing_ is currently discouraged, as some edge cases have not yet been ironed out.
 
 ### Further Reading
 
