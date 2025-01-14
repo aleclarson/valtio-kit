@@ -17,6 +17,7 @@ export const Counter = createClass(() => {
 
     // should not be transformed
     let innerVar = 1
+    innerVar = 2
   })
 
   return {}

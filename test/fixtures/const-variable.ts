@@ -4,7 +4,10 @@ export const Counter = createClass(() => {
   const c = []
   const d = new Map()
   const e = new Set()
-  const f = () => {}
+  const f = () => {
+    const nestedConst = { a: 1 }
+    nestedConst.a++
+  }
 
   return {}
 })

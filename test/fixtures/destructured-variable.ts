@@ -4,8 +4,14 @@ export const Point2D = createClass(({ x, y }, options) => {
   let [foo, bar] = options.array
 
   return {
+    rotation,
     moveX(distance: number) {
       x += distance
+    },
+    someCoolMethod() {
+      foo = 1
+      scale = 2
+      origin.x = 3
     },
   }
 })

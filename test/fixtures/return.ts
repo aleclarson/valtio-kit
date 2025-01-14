@@ -18,5 +18,8 @@ export const Counter = createClass(() => {
     },
     array: [a, b],
     staticObject: { a: 1 },
+    foo() {
+      a++
+    },
   }
 })

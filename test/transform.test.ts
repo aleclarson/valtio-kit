@@ -7,16 +7,48 @@ describe('valtio-kit', () => {
   test('let variable', async () => {
     const code = await transform('let-variable.ts')
     expect(code).toMatchInlineSnapshot(`
-      "import { $atom, $proxyMap, $proxySet, createClass } from '/@fs//path/to/valtio-kit/runtime.js'
+      "import { $proxyMap, $proxySet, $atom, $proxy, createClass } from '/@fs//path/to/valtio-kit/runtime.js'
       export const Counter = createClass(() => {
         let a = $atom(0);
-        let b = $atom({});
+        let b = $atom({
+          c: 0,
+          d: 0,
+          // Nested objects/arrays are not wrapped with $proxy, but they will still be
+          // deeply reactive.
+          nestedObject: {},
+          nestedArray: []
+        });
         let c = $atom([]);
         let d = /* @__PURE__ */ $atom($proxyMap());
         let e = /* @__PURE__ */ $atom($proxySet());
-        let f = $atom(() => {
-        });
-        return {};
+        let f = () => {
+          a.value++;
+          b.value = { c: 1, d: 1, nestedObject: {}, nestedArray: [] };
+          b.value.c++;
+          b.value.d = 1;
+          b.value.d;
+          c.value = [1];
+          c.value.push(2);
+          d.value = /* @__PURE__ */ $proxyMap();
+          d.value.set(1, 1);
+          e.value = /* @__PURE__ */ $proxySet();
+          e.value.add(1);
+          let nestedVar = 0;
+          nestedVar++;
+        };
+        let a2 = 0;
+        let b2 = $proxy({});
+        let c2 = $proxy([]);
+        let d2 = /* @__PURE__ */ $proxyMap();
+        let e2 = /* @__PURE__ */ $proxySet();
+        return {
+          f,
+          a2,
+          b2,
+          c2,
+          d2,
+          e2
+        };
       }, "Counter");
       "
     `)
@@ -25,7 +57,7 @@ describe('valtio-kit', () => {
   test('const variable', async () => {
     const code = await transform('const-variable.ts')
     expect(code).toMatchInlineSnapshot(`
-      "import { $proxy, $proxyMap, $proxySet, createClass } from '/@fs//path/to/valtio-kit/runtime.js'
+      "import { $proxyMap, $proxySet, $proxy, createClass } from '/@fs//path/to/valtio-kit/runtime.js'
       export const Counter = createClass(() => {
         const a = 0;
         const b = $proxy({});
@@ -33,6 +65,8 @@ describe('valtio-kit', () => {
         const d = /* @__PURE__ */ $proxyMap();
         const e = /* @__PURE__ */ $proxySet();
         const f = () => {
+          const nestedConst = { a: 1 };
+          nestedConst.a++;
         };
         return {};
       }, "Counter");
@@ -47,11 +81,17 @@ describe('valtio-kit', () => {
       export const Point2D = createClass(({ x, y }, options) => {
         x = $atom(x);
         const { rotation = 0 } = options;
-        let { scale = 1, origin = { x: 0, y: 0 } } = options; scale = $atom(scale); origin = $atom(origin);
-        let [foo, bar] = options.array; foo = $atom(foo); bar = $atom(bar);
+        let { scale = 1, origin = { x: 0, y: 0 } } = options; scale = $atom(scale);
+        let [foo, bar] = options.array; foo = $atom(foo);
         return {
+          rotation,
           moveX(distance) {
             x.value += distance;
+          },
+          someCoolMethod() {
+            foo.value = 1;
+            scale.value = 2;
+            origin.x = 3;
           }
         };
       }, "Point2D");
@@ -62,7 +102,7 @@ describe('valtio-kit', () => {
   test('return', async () => {
     const code = await transform('return.ts')
     expect(code).toMatchInlineSnapshot(`
-      "import { $atom, $proxy, $unnest, createClass } from '/@fs//path/to/valtio-kit/runtime.js'
+      "import { $atom, $unnest, $proxy, createClass } from '/@fs//path/to/valtio-kit/runtime.js'
       export const Counter = createClass(() => {
         let a = $atom(0);
         const b = $proxy({ a: a.value });
@@ -81,7 +121,10 @@ describe('valtio-kit', () => {
             return 2;
           },
           array: [a.value, b],
-          staticObject: { a: 1 }
+          staticObject: { a: 1 },
+          foo() {
+            a.value++;
+          }
         };
       }, "Counter");
       "
@@ -91,7 +134,7 @@ describe('valtio-kit', () => {
   test('subscribe', async () => {
     const code = await transform('subscribe.ts')
     expect(code).toMatchInlineSnapshot(`
-      "import { $atom, $proxy, subscribe, createClass } from '/@fs//path/to/valtio-kit/runtime.js'
+      "import { subscribe, $atom, $proxy, createClass } from '/@fs//path/to/valtio-kit/runtime.js'
       export const Counter = createClass(() => {
         let a = $atom(0);
         const b = $proxy({ c: 1 });
@@ -110,7 +153,7 @@ describe('valtio-kit', () => {
   test('watch', async () => {
     const code = await transform('watch.ts')
     expect(code).toMatchInlineSnapshot(`
-      "import { $atom, $proxy, $proxyMap, watch, createClass } from '/@fs//path/to/valtio-kit/runtime.js'
+      "import { $proxyMap, watch, $atom, $proxy, createClass } from '/@fs//path/to/valtio-kit/runtime.js'
       export const Counter = createClass(() => {
         let a = $atom(0);
         const b = $proxy({ c: { d: 1 } });
@@ -125,6 +168,7 @@ describe('valtio-kit', () => {
           array.value = [2];
           map.value = /* @__PURE__ */ $proxyMap();
           let innerVar = 1;
+          innerVar = 2;
         });
         return {};
       }, "Counter");
@@ -135,7 +179,7 @@ describe('valtio-kit', () => {
   test('dynamic param', async () => {
     const code = await transform('dynamic-param.ts')
     expect(code).toMatchInlineSnapshot(`
-      "import { $atom, onUpdate, createClass } from '/@fs//path/to/valtio-kit/runtime.js'
+      "import { onUpdate, $atom, createClass } from '/@fs//path/to/valtio-kit/runtime.js'
       export const Test1 = createClass((a, b = 0) => {
         a = $atom(a);
         onUpdate((...args) => [a.value] = args);
@@ -160,7 +204,7 @@ describe('valtio-kit', () => {
   test('computed assignment', async () => {
     const code = await transform('computed-assignment.ts')
     expect(code).toMatchInlineSnapshot(`
-      "import { $atom, computed, $assign, onUpdate, createClass } from '/@fs//path/to/valtio-kit/runtime.js'
+      "import { computed, $assign, onUpdate, $atom, createClass } from '/@fs//path/to/valtio-kit/runtime.js'
       export const AudioPlayer = createClass((src) => {
         src = $atom(src);
         const audio = new HTMLAudioElement();
