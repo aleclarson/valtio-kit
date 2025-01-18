@@ -152,12 +152,7 @@ export function transform(
     // be declared in a nested scope, but not a nested function or loop.
     const rootVariables = findRootVariables(root, isGlobalCallTo)
 
-    const proxies = new Map<
-      string,
-      | TSESTree.ObjectExpression
-      | TSESTree.ArrayExpression
-      | TSESTree.NewExpression
-    >()
+    const proxies = new Map<string, TSESTree.Expression>()
     const unnestedProxies = new Set<string>()
     const watchCallbacks = new Set<TSESTree.Node>()
     const watchedIdentifiers = new Set<TSESTree.Identifier>()
@@ -529,6 +524,29 @@ export function transform(
           }
         }
       }
+      // Check for explicit proxy() wrappers.
+      else if (
+        node.type === T.AssignmentExpression ||
+        node.type === T.VariableDeclarator
+      ) {
+        const left = node.type === T.AssignmentExpression ? node.left : node.id
+        const right =
+          node.type === T.AssignmentExpression ? node.right : node.init
+
+        if (
+          left.type === T.Identifier &&
+          right?.type === T.CallExpression &&
+          hasCalleeNamed(right, 'proxy')
+        ) {
+          if (node.type === T.VariableDeclarator) {
+            const scope = findClosestScope(node)!
+            if (isInNestedFunctionScope(scope)) {
+              return
+            }
+          }
+          proxies.set(left.name, right)
+        }
+      }
       // Scope tracking
       else if (isBlockNode(node) && !scopes.has(node)) {
         trackScope(node)
@@ -588,9 +606,8 @@ export function transform(
     }
 
     for (const [name, node] of proxies) {
-      if (node.type === T.NewExpression) {
-        // While new Map/Set objects *can be* proxies, they've already been
-        // transformed by now.
+      if (node.type !== T.ArrayExpression && node.type !== T.ObjectExpression) {
+        // Only object/array literals need $proxy() transformation.
         continue
       }
       // Both $atom and $unnest have the same effect on object/array literals as
