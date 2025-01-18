@@ -759,18 +759,6 @@ function findParentNode(
   }
 }
 
-function findParentScope(
-  scope: BlockScope | undefined,
-  filter: (scope: BlockScope) => boolean
-) {
-  while (scope) {
-    if (filter(scope)) {
-      return scope
-    }
-    scope = scope.parent
-  }
-}
-
 function hasCalleeNamed(
   node: TSESTree.CallExpression | TSESTree.NewExpression,
   name: string
