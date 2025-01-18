@@ -1,3 +1,5 @@
+import { createClass } from 'valtio-kit'
+
 // Array pattern assignment
 export const Test1 = createClass((a: string, b: number = 0) => {
   onUpdate<typeof Test1>((...args) => ([a] = args))

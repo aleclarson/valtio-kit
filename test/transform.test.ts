@@ -7,8 +7,9 @@ describe('valtio-kit', () => {
   test('let variable', async () => {
     const code = await transform('let-variable.ts')
     expect(code).toMatchInlineSnapshot(`
-      "import { $proxyMap, $proxySet, $atom, $proxy, createClass } from '/@fs//path/to/valtio-kit/runtime.js'
-      export const Counter = createClass(() => {
+      "import { $proxyMap, $proxySet, $atom, $proxy } from '/@fs//path/to/valtio-kit/runtime.js'
+      import { createClass } from "valtio-kit";
+      export const Test = createClass(() => {
         let a = $atom(0);
         let b = $atom({
           c: 0,
@@ -49,7 +50,7 @@ describe('valtio-kit', () => {
           d2,
           e2
         };
-      }, "Counter");
+      }, "Test");
       "
     `)
   })
@@ -57,8 +58,9 @@ describe('valtio-kit', () => {
   test('const variable', async () => {
     const code = await transform('const-variable.ts')
     expect(code).toMatchInlineSnapshot(`
-      "import { $proxyMap, $proxySet, $proxy, createClass } from '/@fs//path/to/valtio-kit/runtime.js'
-      export const Counter = createClass(() => {
+      "import { $proxyMap, $proxySet, $proxy } from '/@fs//path/to/valtio-kit/runtime.js'
+      import { createClass } from "valtio-kit";
+      export const Test = createClass(() => {
         const a = 0;
         const b = $proxy({});
         const c = $proxy([]);
@@ -69,7 +71,7 @@ describe('valtio-kit', () => {
           nestedConst.a++;
         };
         return {};
-      }, "Counter");
+      }, "Test");
       "
     `)
   })
@@ -77,7 +79,8 @@ describe('valtio-kit', () => {
   test('destructured variable', async () => {
     const code = await transform('destructured-variable.ts')
     expect(code).toMatchInlineSnapshot(`
-      "import { $atom, createClass } from '/@fs//path/to/valtio-kit/runtime.js'
+      "import { $atom } from '/@fs//path/to/valtio-kit/runtime.js'
+      import { createClass } from "valtio-kit";
       export const Point2D = createClass(({ x, y }, options) => {
         x = $atom(x);
         const { rotation = 0 } = options;
@@ -102,8 +105,9 @@ describe('valtio-kit', () => {
   test('return', async () => {
     const code = await transform('return.ts')
     expect(code).toMatchInlineSnapshot(`
-      "import { $atom, $unnest, $proxy, createClass } from '/@fs//path/to/valtio-kit/runtime.js'
-      export const Counter = createClass(() => {
+      "import { $atom, $unnest, $proxy } from '/@fs//path/to/valtio-kit/runtime.js'
+      import { createClass } from "valtio-kit";
+      export const Test = createClass(() => {
         let a = $atom(0);
         const b = $proxy({ a: a.value });
         return {
@@ -126,7 +130,7 @@ describe('valtio-kit', () => {
             a.value++;
           }
         };
-      }, "Counter");
+      }, "Test");
       "
     `)
   })
@@ -134,8 +138,9 @@ describe('valtio-kit', () => {
   test('subscribe', async () => {
     const code = await transform('subscribe.ts')
     expect(code).toMatchInlineSnapshot(`
-      "import { subscribe, $atom, $proxy, createClass } from '/@fs//path/to/valtio-kit/runtime.js'
-      export const Counter = createClass(() => {
+      "import { subscribe, $atom, $proxy } from '/@fs//path/to/valtio-kit/runtime.js'
+      import { createClass } from "valtio-kit";
+      export const Test = createClass(() => {
         let a = $atom(0);
         const b = $proxy({ c: 1 });
         subscribe(a, () => {
@@ -145,7 +150,7 @@ describe('valtio-kit', () => {
           console.log("b changed to", b);
         });
         return {};
-      }, "Counter");
+      }, "Test");
       "
     `)
   })
@@ -153,8 +158,9 @@ describe('valtio-kit', () => {
   test('watch', async () => {
     const code = await transform('watch.ts')
     expect(code).toMatchInlineSnapshot(`
-      "import { $proxyMap, watch, $atom, $proxy, createClass } from '/@fs//path/to/valtio-kit/runtime.js'
-      export const Counter = createClass(() => {
+      "import { $proxyMap, watch, $atom, $proxy } from '/@fs//path/to/valtio-kit/runtime.js'
+      import { createClass } from "valtio-kit";
+      export const Test = createClass(() => {
         let a = $atom(0);
         const b = $proxy({ c: { d: 1 } });
         let array = $atom([]);
@@ -171,7 +177,7 @@ describe('valtio-kit', () => {
           innerVar = 2;
         });
         return {};
-      }, "Counter");
+      }, "Test");
       "
     `)
   })
@@ -179,7 +185,8 @@ describe('valtio-kit', () => {
   test('dynamic param', async () => {
     const code = await transform('dynamic-param.ts')
     expect(code).toMatchInlineSnapshot(`
-      "import { onUpdate, $atom, createClass } from '/@fs//path/to/valtio-kit/runtime.js'
+      "import { onUpdate, $atom } from '/@fs//path/to/valtio-kit/runtime.js'
+      import { createClass } from "valtio-kit";
       export const Test1 = createClass((a, b = 0) => {
         a = $atom(a);
         onUpdate((...args) => [a.value] = args);

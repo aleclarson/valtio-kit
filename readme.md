@@ -59,6 +59,8 @@ export default defineConfig({
 4. Call `createClass` to define a reactive class. For example, here's a simple counter (please note that there's much, much more you can do with `createClass`):
 
 ```ts
+import { createClass } from 'valtio-kit'
+
 export const Counter = createClass((initialCount = 0) => {
   let count = initialCount
 
@@ -154,7 +156,7 @@ It's also recommended to read the API reference below.
 
 ## API
 
-The following functions are implicitly available within every `createClass` factory function.
+The valtio-kit API is intentionally minimal. Syntax sugar is generally avoided in favor of plain JavaScript. There exists utilities for readonly reactive values, reactive functions, managed event listeners, and snapshots.
 
 ### `computed`
 

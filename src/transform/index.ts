@@ -624,10 +624,6 @@ export function transform(
     return
   }
 
-  if (options.globals) {
-    imports.add('createClass')
-  }
-
   if (imports.size > 0) {
     let runtimePath =
       options.runtimePath ??

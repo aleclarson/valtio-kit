@@ -1,4 +1,6 @@
-export const Counter = createClass(() => {
+import { createClass } from 'valtio-kit'
+
+export const Test = createClass(() => {
   const a = 0
   const b = {}
   const c = []

@@ -9,22 +9,6 @@ declare global {
    */
   const computed: typeof runtime.computed
   /**
-   * Creates a `class` that produces a reactive object. The given `factory`
-   * function is transformed at compile time. The logic contained within is
-   * plain JavaScript that gets turbo-charged with Valtio-powered reactivity.
-   * The factory function must return an object literal.
-   *
-   * You can also declare persistent side effects, like event listeners or even
-   * Valtio-powered reactions that rerun when a value changes. Any side effects
-   * declared in the `factory` function will be managed for you, but you must
-   * use one of the functions listed below to declare them.
-   *
-   * The following functions are implicitly available within your factory
-   * function: `getVersion`, `on`, `onMount`, `ref`, `snapshot`, `subscribe`,
-   * `subscribeKey`, and `watch`.
-   */
-  const createClass: typeof runtime.createClass
-  /**
    * In Valtio, updates to proxied objects are tracked internally with a version
    * number.
    *
