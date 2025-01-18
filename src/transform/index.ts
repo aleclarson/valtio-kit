@@ -248,8 +248,13 @@ export function transform(
           if (rootVariable) {
             rootVariable.references.add(node)
 
+            // Only direct assignments within a nested function scope will cause
+            // a root variable to be made reactive.
             if (parent.type !== T.MemberExpression) {
-              rootVariable.reactive = true
+              const scope = findClosestScope(node)!
+              if (isInNestedFunctionScope(scope)) {
+                rootVariable.reactive = true
+              }
             }
           }
           return
