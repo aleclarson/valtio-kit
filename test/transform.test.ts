@@ -208,17 +208,24 @@ describe('valtio-kit', () => {
     `)
   })
 
-  test('computed assignment', async () => {
-    const code = await transform('computed-assignment.ts')
+  test('computed', async () => {
+    const code = await transform('computed.ts')
     expect(code).toMatchInlineSnapshot(`
-      "import { computed, $assign, onUpdate, $atom, createClass } from '/@fs//path/to/valtio-kit/runtime.js'
-      export const AudioPlayer = createClass((src) => {
-        src = $atom(src);
-        const audio = new HTMLAudioElement();
-        $assign(audio, "src", (($get) => $get(src).value));
-        onUpdate((...args) => [src.value] = args);
-        return {};
-      }, "AudioPlayer");
+      "import { $unnest, computed, $assign } from '/@fs//path/to/valtio-kit/runtime.js'
+      import { createClass, proxy } from "valtio-kit";
+      export const Test = createClass((options) => {
+        options = proxy(options);
+        const a = $unnest({
+          b: computed(($get) => $get(options).b),
+          c: 0
+        });
+        $assign(a, "c", (($get) => $get(options).c));
+        const d = computed(($get) => $get(a).b + $get(a).c);
+        return {
+          a,
+          d
+        };
+      }, "Test");
       "
     `)
   })

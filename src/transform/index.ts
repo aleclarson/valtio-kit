@@ -959,6 +959,7 @@ type RootVariable = {
   id: TSESTree.Identifier
   scope: TSESTree.Node
   isParam: boolean
+  isComputed: boolean
   reactive: boolean
   objectsContainedBy: Set<TSESTree.ObjectExpression>
   references: Set<TSESTree.Identifier>
@@ -980,6 +981,7 @@ function findRootVariables(
         id,
         scope,
         isParam,
+        isComputed: false,
         reactive: false,
         objectsContainedBy: new Set(),
         references: new Set(),
@@ -1000,6 +1002,7 @@ function findRootVariables(
               id: decl.id,
               scope,
               isParam: false,
+              isComputed: true,
               reactive: true,
               objectsContainedBy: new Set(),
               references: new Set(),
@@ -1058,6 +1061,9 @@ function transformReactiveVariable(
   result: MagicString,
   imports: Set<string>
 ) {
+  if (variable.isComputed) {
+    return
+  }
   if (variable.isParam) {
     const factoryFunc = variable.scope as
       | TSESTree.ArrowFunctionExpression
