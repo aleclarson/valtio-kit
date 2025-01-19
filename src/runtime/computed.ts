@@ -11,7 +11,7 @@ import { EffectScope } from './scope'
  *
  * Note: Your compute function must not have any side effects.
  */
-export function computed<T>(fn: () => T): T {
+export function computed<const T>(fn: () => T): T {
   const compute = fn as (get: (value: object) => object) => any
   const result = atom(compute(f => f))
   EffectScope.addSetupEffect(() => {
