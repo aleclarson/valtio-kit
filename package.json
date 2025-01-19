@@ -52,6 +52,7 @@
     "@testing-library/user-event": "^14.5.2",
     "@types/node": "^22.10.5",
     "@types/react": "^19.0.3",
+    "git-cliff": "^2.7.0",
     "jsdom": "^25.0.1",
     "prettier": "^3.4.2",
     "radashi": "^12.3.0",
@@ -61,8 +62,8 @@
     "tsup": "^8.3.5",
     "typescript": "^5.7.2",
     "valtio": "^2.1.2",
-    "vite": "^6.0.7",
     "valtio-kit": "link:",
+    "vite": "^6.0.7",
     "vitest": "^2.1.8"
   },
   "dependencies": {
