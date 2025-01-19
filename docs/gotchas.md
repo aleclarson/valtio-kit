@@ -49,3 +49,53 @@ const Counter = createClass(() => {
   }
 })
 ```
+
+## Type narrowing sometimes gets in the way
+
+If you define a reactive variable with a string union type, then return it from the factory function, its type will be narrowed to the initial value.
+
+```ts
+type Status = 'idle' | 'loading' | 'success' | 'error'
+
+const Example = createClass(() => {
+  let status: Status = 'idle'
+
+  function setLoading() {
+    status = 'loading'
+  }
+
+  return {
+    status, // Type is narrowed to 'idle'
+    setLoading,
+  }
+})
+
+const example = new Example()
+example.status // Type is 'idle'
+example.setLoading()
+example.status // Still typed as 'idle', but the value is 'loading'
+```
+
+To avoid this, you need to cast the variable when returning it:
+
+```ts
+type Status = 'idle' | 'loading' | 'success' | 'error'
+
+const Example = createClass(() => {
+  let status: Status = 'idle'
+
+  function setLoading() {
+    status = 'loading'
+  }
+
+  return {
+    status: status as Status, // Type is Status
+    setLoading,
+  }
+})
+
+const example = new Example()
+example.status // Type is Status
+example.setLoading()
+example.status // Type is Status
+```
