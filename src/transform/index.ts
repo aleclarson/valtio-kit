@@ -21,33 +21,7 @@ export function transform(
     range: true,
   })
 
-  const constructors: (
-    | TSESTree.ArrowFunctionExpression
-    | TSESTree.FunctionExpression
-  )[] = []
-  const skipped = new WeakSet<TSESTree.Node>()
-
-  const enter = (node: TSESTree.Node, parent: TSESTree.Node | undefined) => {
-    if (parent && skipped.has(parent)) {
-      skipped.add(node)
-      return
-    }
-    if (skipped.has(node)) {
-      return
-    }
-
-    if (
-      node.type === T.CallExpression &&
-      hasCalleeNamed(node, 'createClass') &&
-      (node.arguments[0].type === T.ArrowFunctionExpression ||
-        node.arguments[0].type === T.FunctionExpression)
-    ) {
-      constructors.push(node.arguments[0])
-      skipped.add(node)
-    }
-  }
-
-  simpleTraverse(ast, { enter }, true)
+  const constructors = findClassConstructors(ast)
 
   const result = new MagicString(code)
   const imports = new Set<string>()
@@ -706,6 +680,39 @@ const globalFunctions = [
   'subscribeKey',
   'watch',
 ]
+
+function findClassConstructors(ast: TSESTree.Program) {
+  const constructors: (
+    | TSESTree.ArrowFunctionExpression
+    | TSESTree.FunctionExpression
+  )[] = []
+
+  const skipped = new WeakSet<TSESTree.Node>()
+
+  const enter = (node: TSESTree.Node, parent: TSESTree.Node | undefined) => {
+    if (parent && skipped.has(parent)) {
+      skipped.add(node)
+      return
+    }
+    if (skipped.has(node)) {
+      return
+    }
+
+    if (
+      node.type === T.CallExpression &&
+      hasCalleeNamed(node, 'createClass') &&
+      (node.arguments[0].type === T.ArrowFunctionExpression ||
+        node.arguments[0].type === T.FunctionExpression)
+    ) {
+      constructors.push(node.arguments[0])
+      skipped.add(node)
+    }
+  }
+
+  simpleTraverse(ast, { enter }, true)
+
+  return constructors
+}
 
 function isPurelyBeingDeclared(id: TSESTree.Identifier) {
   let { parent } = id
