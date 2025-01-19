@@ -99,3 +99,26 @@ example.status // Type is Status
 example.setLoading()
 example.status // Type is Status
 ```
+
+If you have many reactive variables being narrowed, it's better to explicitly define the result type of the factory function.
+
+```ts
+type Status = 'idle' | 'loading' | 'success' | 'error'
+
+const Example = createClass(
+  (): {
+    status: Status
+    error: Error | null
+  } => {
+    let status: Status = 'idle'
+    let error: Error | null = null
+
+    /* ... */
+
+    return {
+      status,
+      error,
+    }
+  }
+)
+```
