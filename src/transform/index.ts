@@ -620,6 +620,21 @@ export function transform(
     return
   }
 
+  // Avoid auto-importing anything that's been explicitly imported.
+  for (const node of ast.body) {
+    if (node.type !== T.ImportDeclaration) {
+      continue
+    }
+    for (const spec of node.specifiers) {
+      if (
+        spec.type === T.ImportSpecifier &&
+        spec.imported.type === T.Identifier
+      ) {
+        imports.delete(spec.imported.name)
+      }
+    }
+  }
+
   if (imports.size > 0) {
     let runtimePath =
       options.runtimePath ??
