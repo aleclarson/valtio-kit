@@ -61,7 +61,8 @@ export abstract class ReactiveInstance<TFactory extends InstanceFactory> {
  * A reactive object returned by a `createClass` factory.
  */
 export type ReactiveProxy<TFactory extends InstanceFactory> =
-  ReactiveInstance<TFactory> & Omit<ReturnType<TFactory>, keyof InstanceState>
+  ReactiveInstance<TFactory> &
+    Readonly<Omit<ReturnType<TFactory>, keyof InstanceState>>
 
 /**
  * A class for creating reactive instances with a specific factory.
