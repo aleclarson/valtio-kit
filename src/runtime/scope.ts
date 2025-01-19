@@ -23,6 +23,17 @@ export class EffectScope {
     this.cleanupEffects = undefined
   }
 
+  autoSetup() {
+    if (activeScope) {
+      EffectScope.addSetupEffect(() => {
+        this.setup()
+        return () => this.cleanup()
+      })
+    } else if (allowAutoSetup()) {
+      this.setup()
+    }
+  }
+
   static readonly symbol = Symbol.for('valtio-kit.scope')
 
   static addSetupEffect(effect: () => Cleanup) {
@@ -36,4 +47,9 @@ export class EffectScope {
     activeScope!.updateEffects ||= []
     activeScope!.updateEffects.push(effect)
   }
+}
+
+let allowAutoSetup = () => true
+export function setAllowAutoSetup(fn: () => boolean) {
+  allowAutoSetup = fn
 }

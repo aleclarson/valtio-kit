@@ -1,9 +1,9 @@
 import * as React from 'react'
-import { setAllowAutoRetain } from '../runtime/instance'
+import { setAllowAutoSetup } from '../runtime/scope'
 
 // Do not immediately retain a reactive instance created during a render pass.
 // This prevents memory leaks when a render is cancelled.
-setAllowAutoRetain(() => {
+setAllowAutoSetup(() => {
   // React 19+
   let ReactSharedInternals =
     (React as any)

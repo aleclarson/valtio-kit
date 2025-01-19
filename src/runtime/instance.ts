@@ -1,10 +1,5 @@
 import { EffectScope } from './scope'
 
-let allowAutoRetain = () => true
-export function setAllowAutoRetain(fn: () => boolean) {
-  allowAutoRetain = fn
-}
-
 declare class ReservedProperty<Message extends string> {
   private readonly message: Message
 }
@@ -38,9 +33,7 @@ export abstract class ReactiveInstance<TFactory extends InstanceFactory> {
   protected [EffectScope.symbol] = new EffectScope()
 
   constructor() {
-    if (allowAutoRetain()) {
-      this[EffectScope.symbol].setup()
-    }
+    this[EffectScope.symbol].autoSetup()
   }
 
   /**
