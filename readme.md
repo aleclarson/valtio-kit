@@ -151,6 +151,7 @@ Check out the `docs/` folder for more information.
 - [Objects](/docs/objects.md)
 - [Hooks](/docs/hooks.md)
 - [Computed Bindings](/docs/computed.md)
+- [Gotchas](/docs/gotchas.md)
 
 It's also recommended to read the API reference below.
 
