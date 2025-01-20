@@ -1,6 +1,5 @@
 export {
   getVersion,
-  proxy,
   ref,
   snapshot,
   type INTERNAL_Op,
@@ -22,3 +21,4 @@ export {
   type ReactiveClass,
   type ReactiveProxy,
 } from './runtime/instance'
+export { proxy } from './runtime/proxy'
