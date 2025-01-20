@@ -6,6 +6,8 @@
 pnpm add valtio-kit
 ```
 
+- [StackBlitz playground](https://stackblitz.com/edit/valtio-kit?file=src%2FCounter.state.ts&terminal=dev)
+
 ## Usage
 
 1. Add the Vite plugin to your `vite.config.ts` file.
