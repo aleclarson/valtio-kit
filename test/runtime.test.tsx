@@ -17,6 +17,8 @@ describe('createClass', () => {
     type CounterModule = { Counter: CounterClass }
 
     const { Counter } = await load<CounterModule>(dedent/* ts */ `
+      import { createClass } from 'valtio-kit'
+
       export const Counter = createClass((initialCount = 0) => {
         let count = initialCount
         return {
@@ -59,6 +61,8 @@ describe('createClass', () => {
     >
 
     const { State } = await load<{ State: StateClass }>(dedent/* ts */ `
+      import { createClass } from 'valtio-kit'
+
       export const State = createClass(() => {
         const map = new Map()
         const mapSizeIsMultipleOfFour = computed(() => {
@@ -125,6 +129,8 @@ describe('createClass', () => {
     }
 
     const { Counter, CounterBy2 } = await load<CounterModule>(dedent/* ts */ `
+      import { createClass } from 'valtio-kit'
+
       export const Counter = createClass((initialCount = 0) => {
         let count = initialCount
         return {
