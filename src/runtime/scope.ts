@@ -4,15 +4,19 @@ import type { ReactiveClass } from './instance'
 let activeScope: EffectScope | null = null
 
 export class EffectScope {
+  parentScope: EffectScope | undefined
   setupEffects: (() => Cleanup)[] | undefined
   updateEffects: ((...args: any[]) => void)[] | undefined
   cleanupEffects: Cleanup[] | undefined
 
   enter() {
+    if (activeScope) {
+      this.parentScope = activeScope
+    }
     activeScope = this
   }
   leave() {
-    activeScope = null
+    activeScope = this.parentScope ?? null
   }
 
   setup() {

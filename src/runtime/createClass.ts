@@ -20,14 +20,15 @@ export function createClass<TFactory extends InstanceFactory>(
   const ReactiveClass = class extends ReactiveInstance<TFactory> {
     constructor(...args: Parameters<TFactory>) {
       super()
-      this[EffectScope.symbol].enter()
+      const scope = this[EffectScope.symbol]
+      scope.enter()
       try {
-        const self = unnest(copyDescriptors(this, factory(...args)))
-        this[EffectScope.symbol].autoSetup()
-        return self
+        var self = unnest(copyDescriptors(this, factory(...args)))
       } finally {
-        this[EffectScope.symbol].leave()
+        scope.leave()
       }
+      scope.autoSetup()
+      return self
     }
   }
   Object.defineProperty(ReactiveClass, 'name', {
