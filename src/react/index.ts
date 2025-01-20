@@ -12,7 +12,13 @@ setAllowAutoSetup(() => {
       .__SERVER_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE
 
   if (ReactSharedInternals) {
-    return ReactSharedInternals.H === null
+    const ReactCurrentDispatcher = ReactSharedInternals.H
+    return (
+      ReactCurrentDispatcher === null ||
+      ReactCurrentDispatcher.useCallback
+        .toString()
+        .includes('Invalid hook call')
+    )
   }
 
   // React 18
