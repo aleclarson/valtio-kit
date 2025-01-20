@@ -1,6 +1,6 @@
-import { unnest } from './atom'
 import { InstanceFactory, ReactiveClass, ReactiveInstance } from './instance'
 import { EffectScope } from './scope'
+import { unnest } from './unnest'
 
 /**
  * Creates a `class` that produces a reactive object. The given `factory`
