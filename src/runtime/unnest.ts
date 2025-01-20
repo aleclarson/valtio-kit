@@ -17,9 +17,13 @@ export function unnest(data: any) {
     ) {
       const atom = descriptor.value
       data[key] = atom.value
-      subscribe(atom, () => {
-        data[key] = atom.value
-      })
+      subscribe(
+        atom,
+        () => {
+          data[key] = atom.value
+        },
+        true
+      )
     }
   })
   return data

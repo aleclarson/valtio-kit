@@ -15,9 +15,12 @@ export function computed<const T>(fn: () => T): T {
   const compute = fn as (get: (value: object) => object) => any
   const result = atom(compute(f => f))
   EffectScope.addSetupEffect(() => {
-    return watch(get => {
-      result.value = compute(get)
-    })
+    return watch(
+      get => {
+        result.value = compute(get)
+      },
+      { sync: true }
+    )
   })
   return result as any
 }
