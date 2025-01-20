@@ -30,7 +30,13 @@ export abstract class ReactiveInstance<TFactory extends InstanceFactory> {
   declare protected $data: ReturnType<TFactory>
 
   // The store for persistent effects and update handlers.
-  protected [EffectScope.symbol] = new EffectScope()
+  declare protected [EffectScope.symbol]: EffectScope
+
+  constructor() {
+    Object.defineProperty(this, EffectScope.symbol, {
+      value: new EffectScope(),
+    })
+  }
 
   /**
    * Update the instance with new arguments.
