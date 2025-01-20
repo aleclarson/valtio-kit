@@ -177,6 +177,65 @@ describe('createClass', () => {
     await userEvent.click(app.getByTestId('increment'))
     expect(app.getByTestId('count')).toHaveTextContent('3')
   })
+
+  test('reactive instance composition', async () => {
+    type Module = {
+      Outer: ReactiveClass<
+        () => {
+          inner: {
+            value: number
+            increment: () => void
+            get isMounted(): boolean
+          }
+          data: string
+        }
+      >
+    }
+
+    const { Outer } = await load<Module>(dedent/* ts */ `
+      import { createClass, proxy } from 'valtio-kit'
+
+      const Inner = createClass(() => {
+        let value = 1
+        let mounted = false
+        onMount(() => {
+          mounted = true
+          return () => {
+            mounted = false
+          }
+        })
+        return {
+          value,
+          increment() {
+            value++
+          },
+          get isMounted() {
+            return mounted
+          },
+        }
+      })
+
+      export const Outer = createClass(() => {
+        const inner = proxy(new Inner())
+        const data = computed(() => {
+          return 'hello ' + inner.value
+        })
+        return { inner, data }
+      })
+    `)
+
+    const outer = new Outer()
+    try {
+      expect(outer.inner.value).toBe(1)
+      expect(outer.data).toBe('hello 1')
+
+      outer.inner.increment()
+      expect(outer.data).toBe('hello 2')
+    } finally {
+      outer.release()
+    }
+    expect(outer.inner.isMounted).toBe(false)
+  })
 })
 
 async function load<T extends Record<string, any>>(code: string) {
