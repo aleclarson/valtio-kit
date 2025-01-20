@@ -262,7 +262,7 @@ async function load<T extends Record<string, any>>(code: string) {
             formats: ['es'],
           },
           rollupOptions: {
-            external: ['valtio-kit/runtime'],
+            external: ['valtio-kit', 'valtio-kit/runtime'],
           },
           minify: false,
           emptyOutDir: false,
