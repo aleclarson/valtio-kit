@@ -1,6 +1,6 @@
 import { proxy } from 'valtio'
 import { isAtom } from './atom'
-import { subscribe } from './effects'
+import { subscribeKey } from './effects'
 
 /**
  * Check all immediate properties for atoms. These properties are bound to the
@@ -17,10 +17,11 @@ export function unnest(data: any) {
     ) {
       const atom = descriptor.value
       data[key] = atom.value
-      subscribe(
+      subscribeKey(
         atom,
-        () => {
-          data[key] = atom.value
+        'value',
+        value => {
+          data[key] = value
         },
         true
       )
