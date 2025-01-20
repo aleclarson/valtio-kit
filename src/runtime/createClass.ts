@@ -22,7 +22,9 @@ export function createClass<TFactory extends InstanceFactory>(
       super()
       this[EffectScope.symbol].enter()
       try {
-        return unnest(copyDescriptors(this, factory(...args)))
+        const self = unnest(copyDescriptors(this, factory(...args)))
+        this[EffectScope.symbol].autoSetup()
+        return self
       } finally {
         this[EffectScope.symbol].leave()
       }

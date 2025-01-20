@@ -32,10 +32,6 @@ export abstract class ReactiveInstance<TFactory extends InstanceFactory> {
   // The store for persistent effects and update handlers.
   protected [EffectScope.symbol] = new EffectScope()
 
-  constructor() {
-    this[EffectScope.symbol].autoSetup()
-  }
-
   /**
    * Update the instance with new arguments.
    *
