@@ -1,4 +1,4 @@
-import * as runtime from './dist/index.js'
+import type * as valtioKit from './src/index'
 
 declare global {
   /**
@@ -7,7 +7,7 @@ declare global {
    * component is mounted. The value is updated whenever the reactive values it
    * depends on change.
    */
-  const computed: typeof runtime.computed
+  const computed: typeof valtioKit.computed
   /**
    * In Valtio, updates to proxied objects are tracked internally with a version
    * number.
@@ -24,25 +24,25 @@ declare global {
    * typically useful or recommended to use in application code because
    * `snapshot` and `useSnapshot` already handle version tracking internally.
    */
-  const getVersion: typeof runtime.getVersion
+  const getVersion: typeof valtioKit.getVersion
   /**
    * Declare an event listener just like you would with `addEventListener`.
    *
    * The listener will be cleaned up when the component unmounts.
    */
-  const on: typeof runtime.on
+  const on: typeof valtioKit.on
   /**
    * Declare a side effect that runs when the component mounts.
    *
    * You must return a cleanup function, which is called when the component
    * unmounts.
    */
-  const onMount: typeof runtime.onMount
+  const onMount: typeof valtioKit.onMount
   /**
    * Declare a side effect that runs when the component updates. It receives the
    * latest arguments passed to the `useInstance` hook.
    */
-  const onUpdate: typeof runtime.onUpdate
+  const onUpdate: typeof valtioKit.onUpdate
   /**
    * A `ref` is useful in the rare instances you need to nest an object in a
    * `proxy` that is not wrapped in an inner proxy and, therefore, is not
@@ -72,7 +72,7 @@ declare global {
    * A `ref` should also not be used as the only state in a proxy, making the
    * proxy usage pointless.
    */
-  const ref: typeof runtime.ref
+  const ref: typeof valtioKit.ref
   /**
    * `snapshot` takes a proxy and returns an immutable object, unwrapped from
    * the proxy.
@@ -91,7 +91,7 @@ declare global {
    *
    * @see https://valtio.dev/docs/api/advanced/snapshot
    */
-  const snapshot: typeof runtime.snapshot
+  const snapshot: typeof valtioKit.snapshot
   /**
    * Subscribe to changes to an object, array, map, or set that was declared at
    * the root level of your `createClass` factory function.
@@ -121,18 +121,18 @@ declare global {
    * state.arr.push('world')
    * ```
    */
-  const subscribe: typeof runtime.subscribe
+  const subscribe: typeof valtioKit.subscribe
   /**
    * Similar to `subscribe`, but only subscribes to changes to a specific key of
    * an object.
    */
-  const subscribeKey: typeof runtime.subscribeKey
+  const subscribeKey: typeof valtioKit.subscribeKey
   /**
    * Declare a side effect that runs when the component mounts. Any reactive
    * values used within its `callback` will be tracked, causing the callback to
    * rerun when any of them change.
    */
-  const watch: typeof runtime.watch
+  const watch: typeof valtioKit.watch
 }
 
 export {}

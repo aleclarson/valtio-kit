@@ -21,7 +21,8 @@
       "default": "./dist/transform/index.js"
     },
     "./globals": {
-      "types": "./globals.d.ts"
+      "types": "./globals.d.ts",
+      "default": "./globals.js"
     },
     "./runtime": {
       "types": "./dist/runtime/index.d.ts",
