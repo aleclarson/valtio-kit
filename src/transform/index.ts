@@ -6,13 +6,13 @@ import {
 } from '@typescript-eslint/typescript-estree'
 import { isNodeOfTypes } from '@typescript-eslint/utils/ast-utils'
 import MagicString from 'magic-string'
-import { isAbsolute } from 'path'
 import { castArray } from 'radashi'
 
 export function transform(
   code: string,
   filePath: string,
-  options: { runtimePath?: string; globals?: boolean } = {}
+  runtimePath: string,
+  options: { globals?: boolean } = {}
 ) {
   const ast = parse(code, {
     filePath,
@@ -636,14 +636,6 @@ export function transform(
   }
 
   if (imports.size > 0) {
-    let runtimePath =
-      options.runtimePath ??
-      new URL('./runtime/index.js', import.meta.url).pathname
-
-    if (isAbsolute(runtimePath)) {
-      runtimePath = `/@fs/${runtimePath}`
-    }
-
     result.prepend(
       `import { ${Array.from(imports).join(', ')} } from '${runtimePath}'\n`
     )

@@ -246,7 +246,7 @@ async function transform(fixtureId: string, options: Options = {}) {
         ...options,
         globals: true,
         include: /\.[jt]s$/,
-        runtimePath: '/path/to/valtio-kit/runtime.js',
+        runtimePath: '/@fs//path/to/valtio-kit/runtime.js',
         onTransform(code) {
           result = code
         },

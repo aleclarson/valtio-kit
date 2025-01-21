@@ -33,13 +33,24 @@ export function valtioKit(options: Options = {}): Plugin {
     options.include ?? /\.state\.[jt]s$/,
     options.exclude ?? /\/node_modules\//
   )
+
+  const runtimePath = options.runtimePath ?? 'valtio-kit/runtime'
+
   return {
     name: 'valtio-kit/transform',
+    config: () => ({
+      resolve: {
+        dedupe: ['valtio', 'valtio-kit'],
+      },
+      optimizeDeps: {
+        exclude: ['valtio', 'valtio-kit', runtimePath],
+      },
+    }),
     async transform(code, id) {
       if (!filter(id)) {
         return null
       }
-      const result = transform(code, id, options)
+      const result = transform(code, id, runtimePath, options)
       if (result && options.onTransform) {
         options.onTransform(result.code, id)
       }
