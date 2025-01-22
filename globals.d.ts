@@ -1,4 +1,4 @@
-import type * as valtioKit from './src/index'
+import type * as valtioKit from './dist/index'
 
 declare global {
   /**
