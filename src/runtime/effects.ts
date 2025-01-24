@@ -1,6 +1,6 @@
 import * as valtio from 'valtio'
 import * as utils from 'valtio/utils'
-import { AddEventListener } from './events'
+import { AddEventListener } from './eventTypes'
 import { EffectScope } from './scope'
 
 export type Cleanup = () => void

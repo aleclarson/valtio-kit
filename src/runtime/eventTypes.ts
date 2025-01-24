@@ -1,3 +1,5 @@
+import { EventTarget } from './eventTarget'
+
 // Target types were scraped with the following command:
 //   rg 'interface (\w+)EventMap\b' -g lib.dom.d.ts -o --replace '$1' --no-filename --no-line-number | pbcopy
 export interface AddEventListener {
@@ -409,10 +411,24 @@ export interface AddEventListener {
     callback: (event: XMLHttpRequestEventTargetEventMap[E]) => any,
     options?: boolean | AddEventListenerOptions
   ): void
-  (
-    target: EventTarget,
-    type: string,
-    callback: (event: Event) => any,
+  <T extends EventTarget<any>, E extends InferEventType<T>>(
+    target: T,
+    type: E,
+    callback: InferCallbackType<T, E>,
     options?: boolean | AddEventListenerOptions
   ): void
 }
+
+type InferEventType<T> =
+  T extends EventTarget<infer TEvents>
+    ? object extends TEvents
+      ? string
+      : keyof TEvents
+    : never
+
+type InferCallbackType<T, E extends InferEventType<T>> =
+  T extends EventTarget<infer TEvents>
+    ? object extends TEvents
+      ? (event: Event) => any
+      : (...args: Extract<TEvents[E & keyof TEvents], any[]>) => any
+    : never

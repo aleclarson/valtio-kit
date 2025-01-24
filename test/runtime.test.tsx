@@ -6,7 +6,7 @@ import fs from 'fs'
 import path from 'path'
 import { dedent } from 'radashi'
 import spawn from 'tinyspawn'
-import { ReactiveClass } from 'valtio-kit'
+import { EventTarget, ReactiveClass } from 'valtio-kit'
 import { useInstance, useSnapshot } from 'valtio-kit/react'
 
 describe('createClass', () => {
@@ -235,6 +235,84 @@ describe('createClass', () => {
       outer.release()
     }
     expect(outer.inner.isMounted).toBe(false)
+  })
+
+  test('createEventTarget', async () => {
+    type Module = {
+      Foo: ReactiveClass<
+        () => EventTarget<{
+          foo: [value: number]
+        }> & {
+          foo: number
+          setFoo: (value: number) => void
+        }
+      >
+    }
+
+    const { Foo } = await load<Module>(dedent/* ts */ `
+      import { createEventTarget, createClass } from 'valtio-kit'
+
+      export const Foo = createClass(() => {
+        let foo = 0
+
+        const [eventsMixin, emit] = createEventTarget<{
+          foo: [value: number]
+        }>()
+
+        subscribe(foo, () => {
+          emit('foo', foo)
+        })
+
+        return {
+          ...eventsMixin,
+          foo,
+          setFoo(newFoo) {
+            foo = newFoo
+          },
+        }
+      })
+    `)
+
+    const foo = new Foo()
+    try {
+      const listener = vi.fn()
+
+      // Add listener.
+      foo.addEventListener('foo', listener)
+      foo.setFoo(1)
+      await Promise.resolve()
+      expect(listener).toHaveBeenCalledWith(1)
+      foo.setFoo(2)
+      await Promise.resolve()
+      expect(listener).toHaveBeenCalledWith(2)
+
+      // Remove listener.
+      foo.removeEventListener('foo', listener)
+      foo.setFoo(3)
+      await Promise.resolve()
+      expect(listener).not.toHaveBeenCalledWith(3)
+
+      listener.mockReset()
+
+      // One-time listener.
+      foo.addEventListener('foo', listener, { once: true })
+      foo.setFoo(4)
+      await Promise.resolve()
+      expect(listener).toHaveBeenCalledWith(4)
+      foo.setFoo(5)
+      await Promise.resolve()
+      expect(listener).not.toHaveBeenCalledWith(5)
+
+      // Abort signal.
+      const abortController = new AbortController()
+      foo.addEventListener('foo', listener, { signal: abortController.signal })
+      abortController.abort()
+      foo.setFoo(6)
+      await Promise.resolve()
+      expect(listener).not.toHaveBeenCalledWith(6)
+    } finally {
+      foo.release()
+    }
   })
 })
 

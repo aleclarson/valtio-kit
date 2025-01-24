@@ -16,6 +16,7 @@ export {
   watch,
   type Cleanup,
 } from './runtime/effects'
+export { EventTarget, createEventTarget } from './runtime/eventTarget'
 export {
   ReactiveInstance,
   type ReactiveClass,
