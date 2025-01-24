@@ -11,5 +11,6 @@ export const Test = createClass(options => {
   return {
     a,
     d,
+    e: computed(() => a.b + a.c),
   }
 })

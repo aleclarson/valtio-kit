@@ -223,7 +223,8 @@ describe('valtio-kit', () => {
         const d = computed(($get) => $get(a).b + $get(a).c);
         return {
           a,
-          d
+          d,
+          e: computed(($get) => $get(a).b + $get(a).c)
         };
       }, "Test");
       "
