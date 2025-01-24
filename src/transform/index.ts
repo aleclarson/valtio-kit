@@ -308,23 +308,33 @@ export function transform(
 
         // Wrap object literals in $unnest if they contain computed properties.
         if (node.type === T.ObjectExpression) {
-          const computedProperty = node.properties.find(
-            property =>
-              property.type === T.Property &&
-              property.value.type === T.CallExpression &&
-              hasCalleeNamed(property.value, 'computed')
-          ) as TSESTree.Property | undefined
+          const container = findParentNode(
+            node,
+            parent =>
+              parent.type === T.Property ||
+              parent.type === T.ReturnStatement ||
+              parent.type === T.VariableDeclarator
+          )
+          // Never wrap a returned object literal in $unnest.
+          if (container && container.type !== T.ReturnStatement) {
+            const computedProperty = node.properties.find(
+              property =>
+                property.type === T.Property &&
+                property.value.type === T.CallExpression &&
+                hasCalleeNamed(property.value, 'computed')
+            ) as TSESTree.Property | undefined
 
-          if (computedProperty) {
-            imports.add('$unnest')
-            result.prependLeft(node.range[0], '$unnest(')
-            result.appendRight(node.range[1], ')')
+            if (computedProperty) {
+              imports.add('$unnest')
+              result.prependLeft(node.range[0], '$unnest(')
+              result.appendRight(node.range[1], ')')
 
-            if (
-              context?.type === T.VariableDeclarator &&
-              context.id.type === T.Identifier
-            ) {
-              unnestedProxies.add(context.id.name)
+              if (
+                context?.type === T.VariableDeclarator &&
+                context.id.type === T.Identifier
+              ) {
+                unnestedProxies.add(context.id.name)
+              }
             }
           }
         }
