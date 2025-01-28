@@ -621,7 +621,12 @@ export function transform(
     if (variableDeclarator && variableDeclarator.id.type === T.Identifier) {
       result.appendLeft(
         root.range[1],
-        `, ${JSON.stringify(variableDeclarator.id.name)}`
+        `, ${JSON.stringify(
+          // If the createClass call is curried, the variable name is probably
+          // prefixed with "create" which we don't want to include in the class
+          // name.
+          variableDeclarator.id.name.replace(/^create/, '')
+        )}`
       )
     }
   }
