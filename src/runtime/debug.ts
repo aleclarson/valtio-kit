@@ -1,6 +1,7 @@
 import { isArray, isFunction, isIntString, isString, isSymbol } from 'radashi'
 import { INTERNAL_Op, unstable_getInternalStates } from 'valtio/vanilla'
 import { isAtom } from './atom'
+import { ReactiveInstance } from './instance'
 
 /** Pass this in your `pathFilter` to match any parts before, between, or after your filter. */
 export const wild = Symbol('valtio-kit/debug/wild')
@@ -64,9 +65,12 @@ declare module globalThis {
   let valtioHook: ((event: string, ...args: unknown[]) => void) | undefined
 }
 
+export type ValtioTargetKind = 'variable' | 'instance' | 'proxy'
+
 export type ValtioUpdate = {
   targetId: string
   target: object
+  targetKind: ValtioTargetKind
   path: readonly (string | symbol)[]
   op: 'set' | 'delete'
   value: unknown
@@ -129,6 +133,12 @@ export function inspectValtio({
         targetId = `${context[kDebugId]}.#${targetId}`
       }
 
+      const targetKind = isAtom(proxyObject)
+        ? 'variable'
+        : baseObject instanceof ReactiveInstance
+          ? 'instance'
+          : 'proxy'
+
       if (filters) {
         let shouldLog = false
 
@@ -186,6 +196,7 @@ export function inspectValtio({
       onUpdate({
         targetId,
         target: baseObject,
+        targetKind,
         path,
         op,
         value,
