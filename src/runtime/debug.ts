@@ -404,10 +404,6 @@ function logCall(event: ValtioCall, options: Options) {
   )
 }
 
-function isProxy(value: unknown): value is object {
-  return typeof value === 'object' && value !== null && proxyStateMap.has(value)
-}
-
 function toPathString(path: readonly (string | symbol)[]) {
   let result = ''
   for (const part of path) {
