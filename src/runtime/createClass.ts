@@ -2,6 +2,8 @@ import { InstanceFactory, ReactiveClass, ReactiveInstance } from './instance'
 import { EffectScope } from './scope'
 import { unnest } from './unnest'
 
+declare const process: { env: Record<string, string | undefined> }
+
 /**
  * Creates a `class` that produces a reactive object. The given `factory`
  * function is transformed at compile time. The logic contained within is plain
@@ -15,26 +17,39 @@ import { unnest } from './unnest'
  */
 export function createClass<TFactory extends InstanceFactory>(
   factory: TFactory,
-  name?: string
+  name = factory.name
 ): ReactiveClass<TFactory> {
-  const ReactiveClass = class extends ReactiveInstance<TFactory> {
-    constructor(...args: Parameters<TFactory>) {
-      super()
-      const scope = this[EffectScope.symbol]
-      scope.enter()
-      try {
-        var self = unnest(copyDescriptors(this, factory.apply(this, args)))
-      } finally {
-        scope.leave()
+  const { [name]: newClass } = {
+    [name]: class extends ReactiveInstance<TFactory> {
+      constructor(...args: Parameters<TFactory>) {
+        super()
+
+        const scope = new EffectScope()
+        scope.enter()
+        try {
+          var self = unnest(copyDescriptors(this, factory.apply(this, args)))
+        } finally {
+          scope.leave()
+        }
+        Object.defineProperty(this, EffectScope.symbol, {
+          value: scope,
+        })
+        scope.autoSetup()
+        return self
       }
-      scope.autoSetup()
-      return self
-    }
+    },
   }
-  Object.defineProperty(ReactiveClass, 'name', {
-    value: name ?? factory.name,
-  })
-  return ReactiveClass as any
+
+  // HACK: During development, use a “double class” approach to ensure the
+  // desired class name is visible to devtools without nesting the constructor
+  // code inside the `new Function` call.
+  if (process.env.NODE_ENV === 'development' && name !== '') {
+    return new Function('Super', `return class ${name} extends Super {}`)(
+      newClass
+    )
+  }
+
+  return newClass as any
 }
 
 function copyDescriptors<T extends object>(target: T, source: object): T {
