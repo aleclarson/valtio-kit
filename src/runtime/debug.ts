@@ -1,4 +1,11 @@
-import { isArray, isFunction, isIntString, isString, isSymbol } from 'radashi'
+import {
+  castArray,
+  isArray,
+  isFunction,
+  isIntString,
+  isString,
+  isSymbol,
+} from 'radashi'
 import { INTERNAL_Op, unstable_getInternalStates } from 'valtio/vanilla'
 import { isAtom } from './atom'
 import { ReactiveInstance } from './instance'
@@ -19,6 +26,11 @@ export type ValtioFilter = {
    * regex match.
    */
   targetFilter?: string | RegExp | ((baseObject: object) => boolean)
+  /**
+   * When defined, only log events for target objects with a target kind that
+   * matches one of these values.
+   */
+  targetKindFilter?: Arrayable<ValtioTargetKind>
   /**
    * Only log events that affect a property path that matches this filter.
    *
@@ -152,9 +164,16 @@ export function inspectValtio({
         nextFilter: for (const {
           exclude,
           targetFilter,
+          targetKindFilter,
           pathFilter,
         } of filters) {
           // Do we care about the object being updated?
+          if (
+            targetKindFilter &&
+            !castArray(targetKindFilter).includes(targetKind)
+          ) {
+            continue nextFilter
+          }
           if (targetFilter) {
             if (isFunction(targetFilter)) {
               if (targetKind === 'variable') continue
