@@ -31,6 +31,11 @@ export type ValtioFilter = {
    */
   trace?: boolean
   /**
+   * When true, any time a method is called on a proxy object matching this
+   * filter, the event will be logged.
+   */
+  logMethodCalls?: boolean
+  /**
    * Only log events for target objects with an `id` property or debug ID that
    * matches this filter. Pass a string for an exact match, or a RegExp for a
    * regex match.
@@ -140,10 +145,17 @@ type Options = {
    * When true, every event not filtered out will be logged with the
    * `console.trace` method.
    *
-   * Alternatively, you can set `trace: true` or `trace: false` within a
-   * specific filter to override this global setting.
+   * You can override this by setting `trace` to either true/false on a specific
+   * filter.
    */
   trace?: boolean
+  /**
+   * When true, any methods called from a proxy are logged.
+   *
+   * You can override this by setting `logMethodCalls` to either true/false on a
+   * specific filter.
+   */
+  logMethodCalls?: boolean
 }
 
 export function inspectValtio(options: Options = {}) {
@@ -160,7 +172,7 @@ export function inspectValtio(options: Options = {}) {
   const callStacks = new WeakMap<object, CallStack>()
 
   globalThis.valtioHook = (event, ...payload) => {
-    if (event === 'notifyUpdate') {
+    if (event === 'update') {
       let [baseObject, [op, path, value, oldValue], listeners] = payload as [
         object,
         INTERNAL_Op,
@@ -180,112 +192,16 @@ export function inspectValtio(options: Options = {}) {
         value = undefined
       }
 
-      const proxyObject: any = proxyCache.get(baseObject)
-
-      let targetId = proxyObject[kDebugId] as string | undefined
-      if (!targetId) {
-        if (
-          isAtom(proxyObject) ||
-          unIdentifiedTypes.includes(baseObject.constructor)
-        ) {
-          return // Ignore certain unidentified proxies.
-        }
-        setDebugId(proxyObject)
-        targetId = proxyObject[kDebugId] as string
+      const event = resolveEventInfo(
+        'update',
+        baseObject,
+        path,
+        options,
+        filters
+      )
+      if (!event) {
+        return
       }
-
-      const context: any = proxyObject[kDebugContext]
-      if (context) {
-        setDebugId(context)
-        targetId = `${context[kDebugId]}.#${targetId}`
-      }
-
-      const targetKind = isAtom(proxyObject)
-        ? 'variable'
-        : baseObject instanceof ReactiveInstance
-          ? 'instance'
-          : 'proxy'
-
-      let { trace } = options
-
-      if (filters) {
-        // If only exclusion filters are provided, we must assume an event
-        // should be logged unless explicitly excluded. Otherwise, we'll assume
-        // an event should *not* be logged unless explicitly included.
-        let shouldLog = filters.every(filter => filter.exclude)
-
-        nextFilter: for (const {
-          targetFilter,
-          targetKindFilter,
-          pathFilter,
-          ...filter
-        } of filters) {
-          // Do we care about the object being updated?
-          if (
-            targetKindFilter &&
-            !castArray(targetKindFilter).includes(targetKind)
-          ) {
-            continue nextFilter
-          }
-          if (targetFilter) {
-            if (isFunction(targetFilter)) {
-              if (targetKind === 'variable') continue
-              if (!targetFilter(baseObject)) continue
-            } else if (isString(targetFilter)) {
-              if (targetId !== targetFilter) continue
-            } else if (targetFilter instanceof RegExp) {
-              if (!targetFilter.test(targetId)) continue
-            }
-          }
-
-          if (pathFilter) {
-            // Skip the `.value` part for variables.
-            let pathIndex = targetKind === 'variable' ? 1 : 0
-            let wildPreceding = false
-
-            nextPathFilter: for (const keyFilter of pathFilter) {
-              if (keyFilter === wild) {
-                wildPreceding = true
-                continue nextPathFilter
-              }
-              while (pathIndex < path.length) {
-                if (filterPropertyKey(path[pathIndex], keyFilter)) {
-                  // Consume the wildcard if we found a match.
-                  wildPreceding = false
-                  pathIndex++
-                  continue nextPathFilter
-                }
-                // No match and no wildcard, so skip this filter.
-                if (!wildPreceding) {
-                  continue nextFilter
-                }
-                pathIndex++
-              }
-              // We reached the end without finding a match.
-              if (pathIndex === path.length) {
-                continue nextFilter
-              }
-            }
-          }
-
-          if (filter.trace !== undefined) {
-            trace = filter.trace
-          }
-
-          // By this point, we know the filter was a match. Depending on the
-          // `exclude` filter option, we either log or skip the event.
-          shouldLog = !filter.exclude
-          break
-        }
-
-        // If we didn't find a match, skip this event.
-        if (!shouldLog) {
-          return
-        }
-      }
-
-      const resolvedOptions =
-        trace !== options.trace ? { ...options, trace } : options
 
       if (onCall) {
         const leafObject =
@@ -304,35 +220,58 @@ export function inspectValtio(options: Options = {}) {
           call.seen = true
           return onCall(
             {
-              targetId,
+              targetId: event.targetId,
               target: baseObject,
-              targetKind,
+              targetKind: event.targetKind,
               path: path.slice(0, -1),
               method: call.method.name,
               args: call.args,
             },
-            resolvedOptions
+            event.resolvedOptions
           )
         }
       }
 
       onUpdate(
         {
-          targetId,
+          targetId: event.targetId,
           target: baseObject,
-          targetKind,
+          targetKind: event.targetKind,
           path,
           op,
           value,
           oldValue,
         },
-        resolvedOptions
+        event.resolvedOptions
       )
     } else if (event === 'call') {
       let [method, baseObject, args] = payload as [Function, object, unknown[]]
       const callStack = callStacks.get(baseObject) ?? []
       callStack.push({ method, args, seen: false })
       callStacks.set(baseObject, callStack)
+      if (onCall && !isArray(baseObject)) {
+        const event = resolveEventInfo(
+          'call',
+          baseObject,
+          [method.name],
+          options,
+          filters
+        )
+        return (
+          event &&
+          onCall(
+            {
+              targetId: event.targetId,
+              target: baseObject,
+              targetKind: event.targetKind,
+              path: [method.name],
+              method: 'call',
+              args,
+            },
+            event.resolvedOptions
+          )
+        )
+      }
     } else if (event === 'return') {
       let [, baseObject] = payload as [Function, object, unknown[]]
       const callStack = callStacks.get(baseObject)!
@@ -350,6 +289,136 @@ type CallStack = {
   args: unknown[]
   seen: boolean
 }[]
+
+function resolveEventInfo(
+  type: 'update' | 'call',
+  baseObject: object,
+  path: readonly (string | symbol)[],
+  options: Options,
+  filters: ValtioFilter[] | undefined
+) {
+  const proxyObject: any = proxyCache.get(baseObject)
+
+  let targetId = proxyObject[kDebugId] as string | undefined
+  if (!targetId) {
+    if (
+      isAtom(proxyObject) ||
+      unIdentifiedTypes.includes(baseObject.constructor)
+    ) {
+      return // Ignore certain unidentified proxies.
+    }
+    setDebugId(proxyObject)
+    targetId = proxyObject[kDebugId] as string
+  }
+
+  const context: any = proxyObject[kDebugContext]
+  if (context) {
+    setDebugId(context)
+    targetId = `${context[kDebugId]}.#${targetId}`
+  }
+
+  const targetKind: ValtioTargetKind = isAtom(proxyObject)
+    ? 'variable'
+    : baseObject instanceof ReactiveInstance
+      ? 'instance'
+      : 'proxy'
+
+  let { trace, logMethodCalls } = options
+
+  if (filters) {
+    // If only exclusion filters are provided, we must assume an event
+    // should be logged unless explicitly excluded. Otherwise, we'll assume
+    // an event should *not* be logged unless explicitly included.
+    let shouldLog = filters.every(filter => filter.exclude)
+
+    nextFilter: for (const {
+      targetFilter,
+      targetKindFilter,
+      pathFilter,
+      ...filter
+    } of filters) {
+      // Do we care about the object being updated?
+      if (
+        targetKindFilter &&
+        !castArray(targetKindFilter).includes(targetKind)
+      ) {
+        continue nextFilter
+      }
+      if (targetFilter) {
+        if (isFunction(targetFilter)) {
+          if (targetKind === 'variable') continue
+          if (!targetFilter(baseObject)) continue
+        } else if (isString(targetFilter)) {
+          if (targetId !== targetFilter) continue
+        } else if (targetFilter instanceof RegExp) {
+          if (!targetFilter.test(targetId)) continue
+        }
+      }
+
+      if (pathFilter) {
+        // Skip the `.value` part for variables.
+        let pathIndex = targetKind === 'variable' ? 1 : 0
+        let wildPreceding = false
+
+        nextPathFilter: for (const keyFilter of pathFilter) {
+          if (keyFilter === wild) {
+            wildPreceding = true
+            continue nextPathFilter
+          }
+          while (pathIndex < path.length) {
+            if (filterPropertyKey(path[pathIndex], keyFilter)) {
+              // Consume the wildcard if we found a match.
+              wildPreceding = false
+              pathIndex++
+              continue nextPathFilter
+            }
+            // No match and no wildcard, so skip this filter.
+            if (!wildPreceding) {
+              continue nextFilter
+            }
+            pathIndex++
+          }
+          // We reached the end without finding a match.
+          if (pathIndex === path.length) {
+            continue nextFilter
+          }
+        }
+      }
+
+      if (filter.trace !== undefined) {
+        trace = filter.trace
+      }
+      if (filter.logMethodCalls !== undefined) {
+        logMethodCalls = filter.logMethodCalls
+      }
+
+      // By this point, we know the filter was a match. Depending on the
+      // `exclude` filter option, we either log or skip the event.
+      shouldLog = !filter.exclude
+      break
+    }
+
+    // If we didn't find a match, skip this event.
+    if (!shouldLog) {
+      return null
+    }
+  }
+
+  if (!logMethodCalls && type === 'call') {
+    return null
+  }
+
+  const resolvedOptions =
+    trace !== options.trace || logMethodCalls !== options.logMethodCalls
+      ? { ...options, trace, logMethodCalls }
+      : options
+
+  return {
+    targetId,
+    targetKind,
+    resolvedOptions,
+  }
+}
 
 function filterPropertyKey(
   key: string | symbol,

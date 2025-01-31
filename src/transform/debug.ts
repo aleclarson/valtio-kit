@@ -39,7 +39,7 @@ export function applyDebugTransform(code: string) {
               if (functionBody.type === T.BlockStatement) {
                 result.prependLeft(
                   functionBody.range[0] + 1,
-                  `globalThis.valtioHook?.("notifyUpdate", baseObject, op, listeners);`
+                  `globalThis.valtioHook?.('update', baseObject, op, listeners);`
                 )
               }
             }
@@ -68,17 +68,17 @@ export function applyDebugTransform(code: string) {
         return handler
       }
       handler.get = function(target, prop, receiver) {
-        if (typeof prop === 'symbol' || Object.prototype.hasOwnProperty.call(target, prop)) {
-          return Reflect.get(target, prop, receiver);
+        const value = Reflect.get(target, prop, receiver)
+        if (typeof prop === 'symbol') {
+          return value
         }
-        const value = Reflect.get(target, prop, receiver);
         if (typeof value === 'function' && prop !== 'constructor') {
           return function(...args) {
-            globalThis.valtioHook("call", value, baseObject, args)
+            globalThis.valtioHook('call', value, baseObject, args)
             try {
               return value.apply(this, args)
             } finally {
-              globalThis.valtioHook("return", value, baseObject, args)
+              globalThis.valtioHook('return', value, baseObject, args)
             }
           }
         }
