@@ -302,7 +302,7 @@ export function inspectValtio(options: Options = {}) {
             return
           }
           call.seen = true
-          onCall(
+          return onCall(
             {
               targetId,
               target: baseObject,
@@ -314,20 +314,20 @@ export function inspectValtio(options: Options = {}) {
             resolvedOptions
           )
         }
-      } else {
-        onUpdate(
-          {
-            targetId,
-            target: baseObject,
-            targetKind,
-            path,
-            op,
-            value,
-            oldValue,
-          },
-          resolvedOptions
-        )
       }
+
+      onUpdate(
+        {
+          targetId,
+          target: baseObject,
+          targetKind,
+          path,
+          op,
+          value,
+          oldValue,
+        },
+        resolvedOptions
+      )
     } else if (event === 'call') {
       let [method, baseObject, args] = payload as [Function, object, unknown[]]
       const callStack = callStacks.get(baseObject) ?? []
