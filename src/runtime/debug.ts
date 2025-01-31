@@ -223,7 +223,10 @@ export function inspectValtio(options: Options = {}) {
               targetId: event.targetId,
               target: baseObject,
               targetKind: event.targetKind,
-              path: path.slice(0, -1),
+              // The path of an array update always ends with either an index or
+              // the "length" key. Since we're logging a native Array method
+              // call, it's better to omit them from the path.
+              path: event.resolvedPath.slice(0, -1),
               method: call.method.name,
               args: call.args,
             },
@@ -237,7 +240,7 @@ export function inspectValtio(options: Options = {}) {
           targetId: event.targetId,
           target: baseObject,
           targetKind: event.targetKind,
-          path,
+          path: event.resolvedPath,
           op,
           value,
           oldValue,
@@ -313,8 +316,16 @@ function resolveEventInfo(
 
   const context: any = proxyObject[kDebugContext]
   if (context) {
+    // When a debug context exists, we know this is a reactive variable being
+    // updated. Slice out the `.value` part from the path and prepend the
+    // variable's name (prefixed with `#` to indicate a private name).
+    path = ['#' + targetId, ...path.slice(1)]
+
+    // Reset the target ID to the debug ID of the context. This allows a filter
+    // to easily match anything related to a reactive instance (including public
+    // properties, method calls, and private variables).
     setDebugId(context)
-    targetId = `${context[kDebugId]}.#${targetId}`
+    targetId = context[kDebugId] as string
   }
 
   const targetKind: ValtioTargetKind = isAtom(proxyObject)
@@ -356,8 +367,7 @@ function resolveEventInfo(
       }
 
       if (pathFilter) {
-        // Skip the `.value` part for variables.
-        let pathIndex = targetKind === 'variable' ? 1 : 0
+        let pathIndex = 0
         let wildPreceding = false
 
         nextPathFilter: for (const keyFilter of pathFilter) {
@@ -416,6 +426,7 @@ function resolveEventInfo(
   return {
     targetId,
     targetKind,
+    resolvedPath: path,
     resolvedOptions,
   }
 }
@@ -443,7 +454,6 @@ function logUpdate(event: ValtioUpdate, options: Options) {
 
   const proxyObject = proxyCache.get(event.target)
   if (isAtom(proxyObject)) {
-    path = path.slice(1) // Remove `.value` part
     data = event.op === 'set' ? value : oldValue
   } else {
     if (options.logTargetSnapshots) {
