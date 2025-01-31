@@ -26,6 +26,11 @@ export type ValtioFilter = {
    */
   exclude?: boolean
   /**
+   * When true, any event matching this filter will be logged with the
+   * `console.trace` method.
+   */
+  trace?: boolean
+  /**
    * Only log events for target objects with an `id` property or debug ID that
    * matches this filter. Pass a string for an exact match, or a RegExp for a
    * regex match.
@@ -201,6 +206,8 @@ export function inspectValtio(options: Options = {}) {
           ? 'instance'
           : 'proxy'
 
+      let { trace } = options
+
       if (filters) {
         // If only exclusion filters are provided, we must assume an event
         // should be logged unless explicitly excluded. Otherwise, we'll assume
@@ -208,10 +215,10 @@ export function inspectValtio(options: Options = {}) {
         let shouldLog = filters.every(filter => filter.exclude)
 
         nextFilter: for (const {
-          exclude,
           targetFilter,
           targetKindFilter,
           pathFilter,
+          ...filter
         } of filters) {
           // Do we care about the object being updated?
           if (
@@ -261,9 +268,13 @@ export function inspectValtio(options: Options = {}) {
             }
           }
 
+          if (filter.trace !== undefined) {
+            trace = filter.trace
+          }
+
           // By this point, we know the filter was a match. Depending on the
           // `exclude` filter option, we either log or skip the event.
-          shouldLog = !exclude
+          shouldLog = !filter.exclude
           break
         }
 
@@ -272,6 +283,9 @@ export function inspectValtio(options: Options = {}) {
           return
         }
       }
+
+      const resolvedOptions =
+        trace !== options.trace ? { ...options, trace } : options
 
       if (onCall) {
         const leafObject =
@@ -297,7 +311,7 @@ export function inspectValtio(options: Options = {}) {
               method: call.method.name,
               args: call.args,
             },
-            options
+            resolvedOptions
           )
         }
       } else {
@@ -311,7 +325,7 @@ export function inspectValtio(options: Options = {}) {
             value,
             oldValue,
           },
-          options
+          resolvedOptions
         )
       }
     } else if (event === 'call') {
@@ -372,7 +386,7 @@ function logUpdate(event: ValtioUpdate, options: Options) {
     data = event.op === 'set' ? { target, value } : { target, oldValue }
   }
 
-  console.log(
+  console[options.trace ? 'trace' : 'log'](
     '%s %s %O',
     event.op.toUpperCase(),
     event.targetId + toPathString(path),
@@ -382,7 +396,7 @@ function logUpdate(event: ValtioUpdate, options: Options) {
 
 // The default onCall callback (only used if onUpdate is logUpdate)
 function logCall(event: ValtioCall, options: Options) {
-  console.log(
+  console[options.trace ? 'trace' : 'log'](
     '%s %s %O',
     event.method.toUpperCase(),
     event.targetId + toPathString(event.path),
