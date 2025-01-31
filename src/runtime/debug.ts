@@ -119,7 +119,7 @@ export function inspectValtio({
 
       const proxyObject: any = proxyCache.get(baseObject)
 
-      let targetId = proxyObject[kDebugId]
+      let targetId = proxyObject[kDebugId] as string | undefined
       if (!targetId) {
         if (
           isAtom(proxyObject) ||
@@ -128,10 +128,10 @@ export function inspectValtio({
           return // Ignore certain unidentified proxies.
         }
         setDebugId(proxyObject)
-        targetId = proxyObject[kDebugId]
+        targetId = proxyObject[kDebugId] as string
       }
 
-      const context = proxyObject[kDebugContext]
+      const context: any = proxyObject[kDebugContext]
       if (context) {
         setDebugId(context)
         targetId = `${context[kDebugId]}.#${targetId}`
@@ -169,13 +169,13 @@ export function inspectValtio({
             let pathIndex = 0
             let wildPreceding = false
 
-            nextPathFilter: for (const part of pathFilter) {
-              if (part === wild) {
+            nextPathFilter: for (const keyFilter of pathFilter) {
+              if (keyFilter === wild) {
                 wildPreceding = true
                 continue nextPathFilter
               }
               while (pathIndex < path.length) {
-                if (filterPropertyKey(path[pathIndex], part)) {
+                if (filterPropertyKey(path[pathIndex], keyFilter)) {
                   // Consume the wildcard if we found a match.
                   wildPreceding = false
                   pathIndex++
@@ -235,6 +235,7 @@ function filterPropertyKey(
   return false
 }
 
+// The default onUpdate callback
 function logUpdate(event: ValtioUpdate) {
   let { target, path, value, oldValue } = event
   let data: any
