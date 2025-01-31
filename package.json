@@ -20,6 +20,10 @@
       "types": "./dist/transform/index.d.ts",
       "default": "./dist/transform/index.js"
     },
+    "./debug": {
+      "types": "./dist/debug.d.ts",
+      "default": "./dist/debug.js"
+    },
     "./globals": {
       "types": "./globals.d.ts",
       "default": "./globals.js"

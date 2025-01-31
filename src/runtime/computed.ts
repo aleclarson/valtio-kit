@@ -1,6 +1,7 @@
 import { isFunction } from 'radashi'
 import { watch } from 'valtio/utils'
 import { atom } from './atom'
+import { kDebugContext, kDebugId } from './debug'
 import { EffectScope } from './scope'
 
 /**
@@ -13,7 +14,7 @@ import { EffectScope } from './scope'
  */
 export function computed<const T>(fn: () => T): T {
   const compute = fn as (get: (value: object) => object) => any
-  const result = atom(compute(f => f))
+  const result = atom(compute(arg => arg))
   EffectScope.addSetupEffect(() => {
     return watch(
       get => {
@@ -23,6 +24,15 @@ export function computed<const T>(fn: () => T): T {
     )
   })
   return result as any
+}
+
+export function computedDEV(fn: () => unknown, name: string, context?: any) {
+  const result: any = computed(fn)
+  if (context) {
+    Object.defineProperty(result, kDebugContext, { value: context })
+  }
+  Object.defineProperty(result, kDebugId, { value: name })
+  return result
 }
 
 /** @internal */

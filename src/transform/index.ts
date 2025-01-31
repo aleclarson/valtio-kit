@@ -12,7 +12,7 @@ export function transform(
   code: string,
   filePath: string,
   runtimePath: string,
-  options: { globals?: boolean } = {}
+  options: { globals?: boolean; debug?: boolean } = {}
 ) {
   const ast = parse(code, {
     filePath,
@@ -32,6 +32,31 @@ export function transform(
         'Every `createClass` factory function must have curly braces',
         root.body
       )
+    }
+
+    // In debug mode, rewrite arrow function to function expression, so `this`
+    // is available.
+    if (options.debug && root.type === T.ArrowFunctionExpression) {
+      const arrowIndex = code.lastIndexOf('=>', root.body.range[0])
+      result.prependLeft(root.range[0], 'function ')
+      result.remove(arrowIndex, arrowIndex + 2)
+    }
+
+    // Append variable name to createClass call arguments.
+    const variableDeclarator = findParentNode(
+      root,
+      parent => parent.type === T.VariableDeclarator
+    ) as TSESTree.VariableDeclarator | undefined
+
+    let className = ''
+
+    if (variableDeclarator && variableDeclarator.id.type === T.Identifier) {
+      // If the createClass call is curried, the variable name is probably
+      // prefixed with "create" which we don't want to include in the class
+      // name.
+      className = variableDeclarator.id.name.replace(/^create/, '')
+
+      result.appendLeft(root.range[1], `, ${JSON.stringify(className)}`)
     }
 
     const scopes = new Map<TSESTree.Node, BlockScope>()
@@ -505,6 +530,19 @@ export function transform(
                 variableDeclarator.parent
               )
             }
+
+            if (options.debug && variableDeclarator.id.type === T.Identifier) {
+              imports.add('$computedDEV')
+              result.overwrite(
+                node.callee.range[0],
+                node.callee.range[1],
+                '$computedDEV'
+              )
+              result.appendRight(
+                node.arguments[0].range[1],
+                `, ${JSON.stringify(variableDeclarator.id.name)}, this`
+              )
+            }
           }
         }
       }
@@ -544,7 +582,7 @@ export function transform(
         continue
       }
 
-      transformReactiveVariable(rootVariable, result, imports)
+      transformReactiveVariable(rootVariable, result, imports, !!options.debug)
 
       for (const id of rootVariable.references) {
         let prefix = ''
@@ -610,24 +648,6 @@ export function transform(
         result.appendLeft(id.range[0], '$get(')
         result.appendLeft(id.range[1], ')')
       }
-    }
-
-    // Append variable name to createClass call arguments.
-    const variableDeclarator = findParentNode(
-      root,
-      parent => parent.type === T.VariableDeclarator
-    ) as TSESTree.VariableDeclarator | undefined
-
-    if (variableDeclarator && variableDeclarator.id.type === T.Identifier) {
-      result.appendLeft(
-        root.range[1],
-        `, ${JSON.stringify(
-          // If the createClass call is curried, the variable name is probably
-          // prefixed with "create" which we don't want to include in the class
-          // name.
-          variableDeclarator.id.name.replace(/^create/, '')
-        )}`
-      )
     }
   }
 
@@ -1088,11 +1108,15 @@ function findRootVariables(
 function transformReactiveVariable(
   variable: RootVariable,
   result: MagicString,
-  imports: Set<string>
+  imports: Set<string>,
+  debug: boolean
 ) {
   if (variable.isComputed) {
     return
   }
+
+  const atomFunc = debug ? '$atomDEV' : '$atom'
+
   if (variable.isParam) {
     const factoryFunc = variable.scope as
       | TSESTree.ArrowFunctionExpression
@@ -1102,23 +1126,30 @@ function transformReactiveVariable(
     // of the factory function body.
     if (factoryFunc.body.type === T.BlockStatement) {
       const name = variable.id.name
+      const args = debug ? `${name}, ${JSON.stringify(name)}, this` : name
+
       result.appendLeft(
         factoryFunc.body.range[0] + 1,
-        `\n  ${name} = $atom(${name});`
+        `\n  ${name} = ${atomFunc}(${args});`
       )
-      imports.add('$atom')
+      imports.add(atomFunc)
     }
   }
   // Handle variables declared with `let` or `var`.
   else if (variable.id.parent.type === T.VariableDeclarator) {
     const variableDeclarator = variable.id.parent
+    const debugArg = debug && `, ${JSON.stringify(variable.id.name)}, this`
 
-    imports.add('$atom')
+    imports.add(atomFunc)
     if (variableDeclarator.init) {
-      result.prependLeft(variableDeclarator.init.range[0], '$atom(')
-      result.appendRight(variableDeclarator.init.range[1], ')')
+      result.prependLeft(variableDeclarator.init.range[0], `${atomFunc}(`)
+      result.appendRight(
+        variableDeclarator.init.range[1],
+        (debugArg || '') + ')'
+      )
     } else {
-      result.appendLeft(variable.id.range[1], ` = $atom()`)
+      const args = debug ? `undefined${debugArg}` : ''
+      result.appendLeft(variable.id.range[1], ` = ${atomFunc}(${args})`)
     }
   }
   // Handle variables declared with destructuring.
@@ -1131,10 +1162,12 @@ function transformReactiveVariable(
 
     if (variableDeclarator) {
       const name = variable.id.name
-      imports.add('$atom')
+      const args = debug ? `${name}, ${JSON.stringify(name)}, this` : name
+
+      imports.add(atomFunc)
       result.appendLeft(
         variableDeclarator.parent.range[1],
-        ` ${name} = $atom(${name});`
+        ` ${name} = ${atomFunc}(${args});`
       )
     }
   }

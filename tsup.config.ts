@@ -2,7 +2,12 @@ import { defineConfig } from 'tsup'
 
 export default defineConfig([
   {
-    entry: ['src/index.ts', 'src/react/index.ts', 'src/runtime/index.ts'],
+    entry: [
+      'src/index.ts',
+      'src/debug.ts',
+      'src/react/index.ts',
+      'src/runtime/index.ts',
+    ],
     tsconfig: 'src/runtime/tsconfig.json',
     format: ['esm'],
     dts: true,

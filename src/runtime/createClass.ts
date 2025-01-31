@@ -23,7 +23,7 @@ export function createClass<TFactory extends InstanceFactory>(
       const scope = this[EffectScope.symbol]
       scope.enter()
       try {
-        var self = unnest(copyDescriptors(this, factory(...args)))
+        var self = unnest(copyDescriptors(this, factory.apply(this, args)))
       } finally {
         scope.leave()
       }
