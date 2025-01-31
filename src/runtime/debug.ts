@@ -10,6 +10,10 @@ type Arrayable<T> = T | readonly T[]
 
 export type ValtioFilter = {
   /**
+   * When true, this filter will exclude matches from being logged.
+   */
+  exclude?: boolean
+  /**
    * Only log events for target objects with an `id` property or debug ID that
    * matches this filter. Pass a string for an exact match, or a RegExp for a
    * regex match.
@@ -140,9 +144,16 @@ export function inspectValtio({
           : 'proxy'
 
       if (filters) {
-        let shouldLog = false
+        // If only exclusion filters are provided, we must assume an event
+        // should be logged unless explicitly excluded. Otherwise, we'll assume
+        // an event should *not* be logged unless explicitly included.
+        let shouldLog = filters.every(filter => filter.exclude)
 
-        nextFilter: for (const { targetFilter, pathFilter } of filters) {
+        nextFilter: for (const {
+          exclude,
+          targetFilter,
+          pathFilter,
+        } of filters) {
           // Do we care about the object being updated?
           if (targetFilter) {
             if (isFunction(targetFilter)) {
@@ -183,8 +194,10 @@ export function inspectValtio({
             }
           }
 
-          // The filter passed, so we should log the event.
-          shouldLog = true
+          // By this point, we know the filter was a match. Depending on the
+          // `exclude` filter option, we either log or skip the event.
+          shouldLog = !exclude
+          break
         }
 
         // If we didn't find a match, skip this event.
