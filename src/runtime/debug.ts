@@ -167,7 +167,8 @@ export function inspectValtio({
           }
 
           if (pathFilter) {
-            let pathIndex = 0
+            // Skip the `.value` part for variables.
+            let pathIndex = targetKind === 'variable' ? 1 : 0
             let wildPreceding = false
 
             nextPathFilter: for (const keyFilter of pathFilter) {
