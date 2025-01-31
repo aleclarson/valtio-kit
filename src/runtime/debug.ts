@@ -387,7 +387,7 @@ function logUpdate(event: ValtioUpdate, options: Options) {
   }
 
   console[options.trace ? 'trace' : 'log'](
-    '%s %s %O',
+    '%s %s',
     event.op.toUpperCase(),
     event.targetId + toPathString(path),
     data
@@ -397,7 +397,7 @@ function logUpdate(event: ValtioUpdate, options: Options) {
 // The default onCall callback (only used if onUpdate is logUpdate)
 function logCall(event: ValtioCall, options: Options) {
   console[options.trace ? 'trace' : 'log'](
-    '%s %s %O',
+    '%s %s',
     event.method.toUpperCase(),
     event.targetId + toPathString(event.path),
     event.args
