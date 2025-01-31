@@ -5,6 +5,7 @@ import {
   isIntString,
   isString,
   isSymbol,
+  last,
 } from 'radashi'
 import {
   INTERNAL_Op,
@@ -87,14 +88,22 @@ declare module globalThis {
 
 export type ValtioTargetKind = 'variable' | 'instance' | 'proxy'
 
-export type ValtioUpdate = {
+export type ValtioEvent = {
   targetId: string
   target: object
   targetKind: ValtioTargetKind
   path: readonly (string | symbol)[]
+}
+
+export type ValtioUpdate = ValtioEvent & {
   op: 'set' | 'delete'
   value: unknown
   oldValue: unknown
+}
+
+export type ValtioCall = ValtioEvent & {
+  method: string
+  args: unknown[]
 }
 
 // These types are not given an auto-generated debug ID.
@@ -103,6 +112,11 @@ const unIdentifiedTypes: Function[] = [Array, Map, Set, Object]
 type Options = {
   filters?: ValtioFilter[]
   onUpdate?: (event: ValtioUpdate, options: Options) => void
+  /**
+   * If defined, array updates caused by native method calls will be coalesced
+   * into a single event, which is handled by this callback.
+   */
+  onCall?: (event: ValtioCall, options: Options) => void
   /**
    * Instruct the default logger to snapshot the target object before logging it
    * to the console.
@@ -117,18 +131,32 @@ type Options = {
    * Include updates that are not subscribed to.
    */
   includeDroppedUpdates?: boolean
+  /**
+   * When true, every event not filtered out will be logged with the
+   * `console.trace` method.
+   *
+   * Alternatively, you can set `trace: true` or `trace: false` within a
+   * specific filter to override this global setting.
+   */
+  trace?: boolean
 }
 
 export function inspectValtio(options: Options = {}) {
   const {
     filters,
     onUpdate = logUpdate,
+    onCall = !('onCall' in options || 'onUpdate' in options)
+      ? logCall
+      : undefined,
     includeDroppedUpdates,
   } = options
 
-  globalThis.valtioHook = (event, ...args) => {
+  // Track method calls to coalesce set/delete operations for arrays.
+  const callStacks = new WeakMap<object, CallStack>()
+
+  globalThis.valtioHook = (event, ...payload) => {
     if (event === 'notifyUpdate') {
-      let [baseObject, [op, path, value, oldValue], listeners] = args as [
+      let [baseObject, [op, path, value, oldValue], listeners] = payload as [
         object,
         INTERNAL_Op,
         Set<Function>,
@@ -245,21 +273,69 @@ export function inspectValtio(options: Options = {}) {
         }
       }
 
-      onUpdate(
-        {
-          targetId,
-          target: baseObject,
-          targetKind,
-          path,
-          op,
-          value,
-          oldValue,
-        },
-        options
-      )
+      if (onCall) {
+        const leafObject =
+          path.length > 1 ? resolveLeafObject(baseObject, path) : baseObject
+
+        // When a native array method is called, we want to coalesce the updates
+        // into a single event.
+        if (isArray(leafObject) && callStacks.has(leafObject)) {
+          const call = last(callStacks.get(leafObject)!)!
+          if (
+            call.seen ||
+            call.method !== Array.prototype[call.method.name as keyof any[]]
+          ) {
+            return
+          }
+          call.seen = true
+          onCall(
+            {
+              targetId,
+              target: baseObject,
+              targetKind,
+              path: path.slice(0, -1),
+              method: call.method.name,
+              args: call.args,
+            },
+            options
+          )
+        }
+      } else {
+        onUpdate(
+          {
+            targetId,
+            target: baseObject,
+            targetKind,
+            path,
+            op,
+            value,
+            oldValue,
+          },
+          options
+        )
+      }
+    } else if (event === 'call') {
+      let [method, baseObject, args] = payload as [Function, object, unknown[]]
+      const callStack = callStacks.get(baseObject) ?? []
+      callStack.push({ method, args, seen: false })
+      callStacks.set(baseObject, callStack)
+    } else if (event === 'return') {
+      let [, baseObject] = payload as [Function, object, unknown[]]
+      const callStack = callStacks.get(baseObject)!
+      // Assume this "return" event is for the last call.
+      callStack.pop()
+      if (callStack.length === 0) {
+        callStacks.delete(baseObject)
+      }
     }
   }
 }
+
+type CallStack = {
+  method: Function
+  args: unknown[]
+  seen: boolean
+}[]
 
 function filterPropertyKey(
   key: string | symbol,
@@ -304,6 +380,16 @@ function logUpdate(event: ValtioUpdate, options: Options) {
   )
 }
 
+// The default onCall callback (only used if onUpdate is logUpdate)
+function logCall(event: ValtioCall, options: Options) {
+  console.log(
+    '%s %s %O',
+    event.method.toUpperCase(),
+    event.targetId + toPathString(event.path),
+    event.args
+  )
+}
+
 function isProxy(value: unknown): value is object {
   return typeof value === 'object' && value !== null && proxyStateMap.has(value)
 }
@@ -315,4 +401,17 @@ function toPathString(path: readonly (string | symbol)[]) {
       isSymbol(part) || isIntString(part) ? `[${String(part)}]` : `.${part}`
   }
   return result
+}
+
+function resolveLeafObject(
+  baseObject: any,
+  path: readonly (string | symbol)[]
+) {
+  let leafObject = baseObject
+  // Ignore the last part of the path.
+  for (let i = 0; i < path.length - 1; i++) {
+    leafObject = leafObject[path[i]]
+  }
+  const state = proxyStateMap.get(leafObject)
+  return state?.[0] ?? leafObject
 }
