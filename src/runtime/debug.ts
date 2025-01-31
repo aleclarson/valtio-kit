@@ -157,6 +157,7 @@ export function inspectValtio({
           // Do we care about the object being updated?
           if (targetFilter) {
             if (isFunction(targetFilter)) {
+              if (targetKind === 'variable') continue
               if (!targetFilter(baseObject)) continue
             } else if (isString(targetFilter)) {
               if (targetId !== targetFilter) continue
