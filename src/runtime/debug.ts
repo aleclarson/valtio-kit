@@ -6,7 +6,11 @@ import {
   isString,
   isSymbol,
 } from 'radashi'
-import { INTERNAL_Op, unstable_getInternalStates } from 'valtio/vanilla'
+import {
+  INTERNAL_Op,
+  snapshot,
+  unstable_getInternalStates,
+} from 'valtio/vanilla'
 import { isAtom } from './atom'
 import { ReactiveInstance } from './instance'
 
@@ -75,7 +79,7 @@ export function setDebugId(target: object, debugId?: string) {
   })
 }
 
-const { proxyCache } = unstable_getInternalStates()
+const { proxyCache, proxyStateMap } = unstable_getInternalStates()
 
 declare module globalThis {
   let valtioHook: ((event: string, ...args: unknown[]) => void) | undefined
@@ -96,18 +100,32 @@ export type ValtioUpdate = {
 // These types are not given an auto-generated debug ID.
 const unIdentifiedTypes: Function[] = [Array, Map, Set, Object]
 
-export function inspectValtio({
-  filters,
-  onUpdate = logUpdate,
-  includeDroppedUpdates,
-}: {
+type Options = {
   filters?: ValtioFilter[]
-  onUpdate?: (event: ValtioUpdate) => void
+  onUpdate?: (event: ValtioUpdate, options: Options) => void
+  /**
+   * Instruct the default logger to snapshot the target object before logging it
+   * to the console.
+   *
+   * Without this option, logged targets may not reflect their state at the time
+   * of the update (when inspecting them in the console).
+   *
+   * It's disabled by default, for performance reasons.
+   */
+  logTargetSnapshots?: boolean
   /**
    * Include updates that are not subscribed to.
    */
   includeDroppedUpdates?: boolean
-} = {}) {
+}
+
+export function inspectValtio(options: Options = {}) {
+  const {
+    filters,
+    onUpdate = logUpdate,
+    includeDroppedUpdates,
+  } = options
+
   globalThis.valtioHook = (event, ...args) => {
     if (event === 'notifyUpdate') {
       let [baseObject, [op, path, value, oldValue], listeners] = args as [
@@ -227,15 +245,18 @@ export function inspectValtio({
         }
       }
 
-      onUpdate({
-        targetId,
-        target: baseObject,
-        targetKind,
-        path,
-        op,
-        value,
-        oldValue,
-      })
+      onUpdate(
+        {
+          targetId,
+          target: baseObject,
+          targetKind,
+          path,
+          op,
+          value,
+          oldValue,
+        },
+        options
+      )
     }
   }
 }
@@ -257,7 +278,7 @@ function filterPropertyKey(
 }
 
 // The default onUpdate callback
-function logUpdate(event: ValtioUpdate) {
+function logUpdate(event: ValtioUpdate, options: Options) {
   let { target, path, value, oldValue } = event
   let data: any
 
@@ -266,6 +287,12 @@ function logUpdate(event: ValtioUpdate) {
     path = path.slice(1) // Remove `.value` part
     data = event.op === 'set' ? value : oldValue
   } else {
+    if (options.logTargetSnapshots) {
+      const targetProxy = proxyCache.get(target)
+      if (targetProxy) {
+        target = snapshot(targetProxy)
+      }
+    }
     data = event.op === 'set' ? { target, value } : { target, oldValue }
   }
 
@@ -275,6 +302,10 @@ function logUpdate(event: ValtioUpdate) {
     event.targetId + toPathString(path),
     data
   )
+}
+
+function isProxy(value: unknown): value is object {
+  return typeof value === 'object' && value !== null && proxyStateMap.has(value)
 }
 
 function toPathString(path: readonly (string | symbol)[]) {
