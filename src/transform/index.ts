@@ -1,12 +1,12 @@
 import {
   parse,
-  simpleTraverse,
   AST_NODE_TYPES as T,
   TSESTree,
 } from '@typescript-eslint/typescript-estree'
 import { isNodeOfTypes } from '@typescript-eslint/utils/ast-utils'
 import MagicString from 'magic-string'
 import { castArray } from 'radashi'
+import { traverse } from './utils/traverse'
 
 export function transform(
   code: string,
@@ -221,361 +221,374 @@ export function transform(
       return refs.length > 0 && refs.every(isRootReference)
     }
 
-    const enter = (node: TSESTree.Node, parent: TSESTree.Node | undefined) => {
-      if (node.type === T.Identifier) {
-        if (!parent) return
+    const trackReferenceOrAssignment = (node: TSESTree.Identifier) => {
+      const { parent } = node
 
-        if (parent.type === T.MemberExpression && node === parent.property) {
-          // Ignore property access.
-          return
-        }
+      if (parent.type === T.MemberExpression && node === parent.property) {
+        // Ignore property access.
+        return
+      }
 
-        if (isPurelyBeingDeclared(node)) {
-          // Ignore declarations.
-          return
-        }
+      if (isPurelyBeingDeclared(node)) {
+        // Ignore declarations.
+        return
+      }
 
-        // Handle assignments to root variables (or their properties).
-        const assignment = findAssignment(node)
-        if (assignment && getLeftReferences(assignment).includes(node)) {
-          const rootVariable = matchRootVariable(node)
-          if (rootVariable) {
-            rootVariable.references.add(node)
-
-            // Only direct assignments within a nested function scope will cause
-            // a root variable to be made reactive.
-            if (parent.type !== T.MemberExpression) {
-              const scope = findClosestScope(node)!
-              if (isInNestedFunctionScope(scope)) {
-                rootVariable.reactive = true
-              }
-            }
-          }
-          return
-        }
-
-        if (
-          parent.type === T.Property &&
-          parent.parent.type === T.ObjectExpression
-        ) {
-          const objectLiteral = parent.parent
-          const scope = findClosestScope(objectLiteral)!
-          const returnStmt = findParentNode(
-            objectLiteral,
-            parent =>
-              parent.type === T.ReturnStatement ||
-              parent.type === T.CallExpression,
-            scope.node
-          )
-
-          if (
-            returnStmt?.type === T.ReturnStatement &&
-            !isInNestedFunctionScope(scope)
-          ) {
-            // Allow reactive variables to be returned, where createClass can
-            // subscribe to them.
-            const rootVariable = matchRootVariable(node)
-            rootVariable?.objectsContainedBy.add(objectLiteral)
-            return
-          }
-        }
-
-        if (isBeingWatched(node, root)) {
-          watchedIdentifiers.add(node)
-        }
-
-        // Collect references to possibly reactive variables.
+      // Handle assignments to root variables (or their properties).
+      const assignment = findAssignment(node)
+      if (assignment && getLeftReferences(assignment).includes(node)) {
         const rootVariable = matchRootVariable(node)
         if (rootVariable) {
-          if (
-            node.parent.type === T.CallExpression &&
-            node === node.parent.arguments[0] &&
-            isGlobalCallTo(node.parent, 'subscribe')
-          ) {
-            // When a root variable is subscribed to, it becomes reactive. This
-            // prevents a runtime error. We also don't unbox the atom in this
-            // case.
-            rootVariable.reactive = true
-          } else {
-            rootVariable.references.add(node)
+          rootVariable.references.add(node)
+
+          // Only direct assignments within a nested function scope will cause
+          // a root variable to be made reactive.
+          if (parent.type !== T.MemberExpression) {
+            const scope = findClosestScope(node)!
+            if (isInNestedFunctionScope(scope)) {
+              rootVariable.reactive = true
+            }
           }
         }
+        return
       }
-      // Wrap object/array literals in $proxy if being assigned to a reactive variable.
-      else if (
-        node.type === T.ObjectExpression ||
-        node.type === T.ArrayExpression
-      ) {
-        const scope = findClosestScope(node)!
-        if (isInNestedFunctionScope(scope)) {
-          // Ignore object/array literals inside function bodies.
-          return
-        }
 
-        const context = findParentNode(
-          node,
+      if (
+        parent.type === T.Property &&
+        parent.parent.type === T.ObjectExpression
+      ) {
+        const objectLiteral = parent.parent
+        const scope = findClosestScope(objectLiteral)!
+        const returnStmt = findParentNode(
+          objectLiteral,
           parent =>
-            parent.type === T.Property ||
-            parent.type === T.ArrayExpression ||
-            parent.type === T.VariableDeclarator ||
+            parent.type === T.ReturnStatement ||
             parent.type === T.CallExpression,
           scope.node
         )
 
-        // Ignore object/array literals that are nested in another object/array
-        // literal, or ignore them if passed into a function call.
         if (
-          context?.type === T.VariableDeclarator &&
-          context.id.type === T.Identifier
+          returnStmt?.type === T.ReturnStatement &&
+          !isInNestedFunctionScope(scope)
         ) {
-          proxies.set(context.id.name, node)
-        }
-
-        // Wrap object literals in $unnest if they contain computed properties.
-        if (node.type === T.ObjectExpression) {
-          const container = findParentNode(
-            node,
-            parent =>
-              parent.type === T.Property ||
-              parent.type === T.ReturnStatement ||
-              parent.type === T.VariableDeclarator
-          )
-          // Never wrap a returned object literal in $unnest.
-          if (container && container.type !== T.ReturnStatement) {
-            const computedProperty = node.properties.find(
-              property =>
-                property.type === T.Property &&
-                property.value.type === T.CallExpression &&
-                hasCalleeNamed(property.value, 'computed')
-            ) as TSESTree.Property | undefined
-
-            if (computedProperty) {
-              imports.add('$unnest')
-              result.prependLeft(node.range[0], '$unnest(')
-              result.appendRight(node.range[1], ')')
-
-              if (
-                context?.type === T.VariableDeclarator &&
-                context.id.type === T.Identifier
-              ) {
-                unnestedProxies.add(context.id.name)
-              }
-            }
-          }
-        }
-      }
-      // The factory function must return an object literal.
-      else if (node.type === T.ReturnStatement) {
-        const scope = findClosestScope(node)!
-        if (isInNestedFunctionScope(scope)) {
-          // Ignore return statements inside function bodies.
+          // Allow reactive variables to be returned, where createClass can
+          // subscribe to them.
+          const rootVariable = matchRootVariable(node)
+          rootVariable?.objectsContainedBy.add(objectLiteral)
           return
         }
-        if (!node.argument || node.argument.type !== T.ObjectExpression) {
-          throwSyntaxError('You must return an object literal', node)
-        }
       }
-      // Any new Map/Set is replaced with proxyMap/proxySet respectively.
-      else if (
-        node.type === T.NewExpression &&
-        node.callee.type === T.Identifier
-      ) {
-        const proxyFunc =
-          node.callee.name === 'Map'
-            ? '$proxyMap'
-            : node.callee.name === 'Set'
-              ? '$proxySet'
-              : null
 
-        if (proxyFunc && isGlobalCallTo(node, node.callee.name)) {
-          const assignment = findParentNode(
-            node,
-            parent =>
-              parent.type === T.VariableDeclarator ||
-              parent.type === T.AssignmentExpression ||
-              parent.type === T.CallExpression
-          ) as
-            | TSESTree.VariableDeclarator
-            | TSESTree.AssignmentExpression
-            | TSESTree.CallExpression
-            | undefined
-
-          if (!assignment || assignment.type === T.CallExpression) {
-            return
-          }
-
-          // Skip the transform if not being assigned to a root-level variable.
-          if (isReactiveAssignment(assignment)) {
-            if (assignment.type === T.VariableDeclarator) {
-              proxies.set(assignment.id.name, node)
-            }
-
-            imports.add(proxyFunc)
-
-            // Remove the 'new' keyword.
-            result.remove(node.range[0], node.callee.range[0])
-
-            // Overwrite the callee with the proxy function.
-            result.overwrite(...node.callee.range, proxyFunc)
-          }
-        }
+      if (isBeingWatched(node, root)) {
+        watchedIdentifiers.add(node)
       }
-      // Add imports for global functions being used.
-      else if (node.type === T.CallExpression) {
-        const globalFunction = globalFunctions.find(name =>
-          isGlobalCallTo(node, name)
-        )
-        if (globalFunction && options.globals) {
-          imports.add(globalFunction)
-        }
-        if (globalFunction === 'watch' || globalFunction === 'computed') {
-          // Throw if the first argument is not a function.
-          const watchCallback = node.arguments[0]
-          if (
-            watchCallback.type !== T.ArrowFunctionExpression &&
-            watchCallback.type !== T.FunctionExpression
-          ) {
-            throwSyntaxError('The first argument must be a function', node)
-          }
 
-          // Add a $get parameter to the function.
-          const paramsRange = getParametersRange(watchCallback, code)
-          result.appendLeft(paramsRange[0], '$get')
-
-          // Track all watch callbacks.
-          watchCallbacks.add(watchCallback)
-
-          // Treat computed variables as atoms.
-          if (globalFunction === 'computed') {
-            if (node.parent.type === T.Property && node === node.parent.value) {
-              // Allow computed(…) to declare a computed property.
-              return
-            }
-
-            // Support computed property assignments.
-            if (
-              node.parent.type === T.AssignmentExpression &&
-              node === node.parent.right
-            ) {
-              if (node.parent.left.type !== T.MemberExpression) {
-                throwSyntaxError(
-                  'Computed assignments must be property assignments',
-                  node
-                )
-              }
-              if (node.parent.operator !== '=') {
-                throwSyntaxError(
-                  'Computed assignment must use "=" operator',
-                  node
-                )
-              }
-
-              const key = node.parent.left.property
-
-              // Replace "." with "," because the object and property parts are
-              // being split into separate arguments.
-              result.overwrite(key.range[0] - 1, key.range[0], ', ')
-
-              // Replace "=" with "," because the compute function is the third
-              // argument to the $assign call.
-              result.overwrite(
-                key.range[1],
-                code.indexOf('=', key.range[0]) + 1,
-                ','
-              )
-
-              if (key.type === T.Identifier) {
-                // Stringify the property name.
-                result.overwrite(
-                  key.range[0],
-                  key.range[1],
-                  JSON.stringify(key.name)
-                )
-              } else if (key.type === T.Literal) {
-                // Remove square braces for computed property keys.
-                result.remove(key.range[0] - 1, key.range[0])
-              } else {
-                // The property is dynamic.
-                result.appendLeft(key.range[0], '() => ')
-              }
-
-              // The `computed` call is replaced with an $assign call.
-              result.remove(...node.callee.range)
-
-              let prefix = ''
-              if (node.parent.left.object.type !== T.Identifier) {
-                prefix = '() => '
-              }
-
-              imports.add('$assign')
-              result.prependLeft(node.parent.range[0], '$assign(' + prefix)
-              result.appendRight(node.parent.range[1], ')')
-              return
-            }
-
-            const variableDeclarator =
-              node.parent.type === T.VariableDeclarator
-                ? node.parent
-                : undefined
-
-            if (!variableDeclarator) {
-              throwSyntaxError(
-                "Cannot use computed(…) outside of a const variable's initializer",
-                node
-              )
-            }
-            if (isReassignable(variableDeclarator)) {
-              throwSyntaxError(
-                `Expected 'const' keyword in computed variable declaration`,
-                variableDeclarator.parent
-              )
-            }
-
-            if (options.debug && variableDeclarator.id.type === T.Identifier) {
-              imports.add('$computedDEV')
-              result.overwrite(
-                node.callee.range[0],
-                node.callee.range[1],
-                '$computedDEV'
-              )
-              result.appendRight(
-                node.arguments[0].range[1],
-                `, ${JSON.stringify(variableDeclarator.id.name)}, this`
-              )
-            }
-          }
-        }
-      }
-      // Check for explicit proxy() wrappers.
-      else if (
-        node.type === T.AssignmentExpression ||
-        node.type === T.VariableDeclarator
-      ) {
-        const left = node.type === T.AssignmentExpression ? node.left : node.id
-        const right =
-          node.type === T.AssignmentExpression ? node.right : node.init
-
+      // Collect references to possibly reactive variables.
+      const rootVariable = matchRootVariable(node)
+      if (rootVariable) {
         if (
-          left.type === T.Identifier &&
-          right?.type === T.CallExpression &&
-          hasCalleeNamed(right, 'proxy')
+          node.parent.type === T.CallExpression &&
+          node === node.parent.arguments[0] &&
+          isGlobalCallTo(node.parent, 'subscribe')
         ) {
-          if (node.type === T.VariableDeclarator) {
-            const scope = findClosestScope(node)!
-            if (isInNestedFunctionScope(scope)) {
-              return
-            }
-          }
-          proxies.set(left.name, right)
+          // When a root variable is subscribed to, it becomes reactive. This
+          // prevents a runtime error. We also don't unbox the atom in this
+          // case.
+          rootVariable.reactive = true
+        } else {
+          rootVariable.references.add(node)
         }
-      }
-      // Scope tracking
-      else if (isBlockNode(node) && !scopes.has(node)) {
-        trackScope(node)
       }
     }
 
-    simpleTraverse(root.body, { enter }, true)
+    // Wrap object/array literals in $proxy if being assigned to a reactive variable.
+    const wrapProxyableLiteral = (
+      node: TSESTree.ObjectExpression | TSESTree.ArrayExpression
+    ) => {
+      const scope = findClosestScope(node)!
+      if (isInNestedFunctionScope(scope)) {
+        // Ignore object/array literals inside function bodies.
+        return
+      }
+
+      const context = findParentNode(
+        node,
+        parent =>
+          parent.type === T.Property ||
+          parent.type === T.ArrayExpression ||
+          parent.type === T.VariableDeclarator ||
+          parent.type === T.CallExpression,
+        scope.node
+      )
+
+      // Ignore object/array literals that are nested in another object/array
+      // literal, or ignore them if passed into a function call.
+      if (
+        context?.type === T.VariableDeclarator &&
+        context.id.type === T.Identifier
+      ) {
+        proxies.set(context.id.name, node)
+      }
+
+      // Wrap object literals in $unnest if they contain computed properties.
+      if (node.type === T.ObjectExpression) {
+        const container = findParentNode(
+          node,
+          parent =>
+            parent.type === T.Property ||
+            parent.type === T.ReturnStatement ||
+            parent.type === T.VariableDeclarator
+        )
+        // Never wrap a returned object literal in $unnest.
+        if (container && container.type !== T.ReturnStatement) {
+          const computedProperty = node.properties.find(
+            property =>
+              property.type === T.Property &&
+              property.value.type === T.CallExpression &&
+              hasCalleeNamed(property.value, 'computed')
+          ) as TSESTree.Property | undefined
+
+          if (computedProperty) {
+            imports.add('$unnest')
+            result.prependLeft(node.range[0], '$unnest(')
+            result.appendRight(node.range[1], ')')
+
+            if (
+              context?.type === T.VariableDeclarator &&
+              context.id.type === T.Identifier
+            ) {
+              unnestedProxies.add(context.id.name)
+            }
+          }
+        }
+      }
+    }
+
+    // The factory function must return an object literal.
+    const validateFactoryReturn = (node: TSESTree.ReturnStatement) => {
+      const scope = findClosestScope(node)!
+      if (isInNestedFunctionScope(scope)) {
+        // Ignore return statements inside function bodies.
+        return
+      }
+      if (!node.argument || node.argument.type !== T.ObjectExpression) {
+        throwSyntaxError('You must return an object literal', node)
+      }
+    }
+
+    // Any new Map/Set is replaced with proxyMap/proxySet respectively.
+    const rewriteProxyableCollection = (node: TSESTree.NewExpression) => {
+      if (node.callee.type !== T.Identifier) {
+        return
+      }
+
+      const proxyFunc =
+        node.callee.name === 'Map'
+          ? '$proxyMap'
+          : node.callee.name === 'Set'
+            ? '$proxySet'
+            : null
+
+      if (proxyFunc && isGlobalCallTo(node, node.callee.name)) {
+        const assignment = findParentNode(
+          node,
+          parent =>
+            parent.type === T.VariableDeclarator ||
+            parent.type === T.AssignmentExpression ||
+            parent.type === T.CallExpression
+        ) as
+          | TSESTree.VariableDeclarator
+          | TSESTree.AssignmentExpression
+          | TSESTree.CallExpression
+          | undefined
+
+        if (!assignment || assignment.type === T.CallExpression) {
+          return
+        }
+
+        // Skip the transform if not being assigned to a root-level variable.
+        if (isReactiveAssignment(assignment)) {
+          if (assignment.type === T.VariableDeclarator) {
+            proxies.set(assignment.id.name, node)
+          }
+
+          imports.add(proxyFunc)
+
+          // Remove the 'new' keyword.
+          result.remove(node.range[0], node.callee.range[0])
+
+          // Overwrite the callee with the proxy function.
+          result.overwrite(...node.callee.range, proxyFunc)
+        }
+      }
+    }
+
+    // Add imports for global functions being used.
+    const handleGlobalFunctionCall = (node: TSESTree.CallExpression) => {
+      const globalFunction = globalFunctions.find(name =>
+        isGlobalCallTo(node, name)
+      )
+      if (globalFunction && options.globals) {
+        imports.add(globalFunction)
+      }
+      if (globalFunction === 'watch' || globalFunction === 'computed') {
+        // Throw if the first argument is not a function.
+        const watchCallback = node.arguments[0]
+        if (
+          watchCallback.type !== T.ArrowFunctionExpression &&
+          watchCallback.type !== T.FunctionExpression
+        ) {
+          throwSyntaxError('The first argument must be a function', node)
+        }
+
+        // Add a $get parameter to the function.
+        const paramsRange = getParametersRange(watchCallback, code)
+        result.appendLeft(paramsRange[0], '$get')
+
+        // Track all watch callbacks.
+        watchCallbacks.add(watchCallback)
+
+        // Treat computed variables as atoms.
+        if (globalFunction === 'computed') {
+          if (node.parent.type === T.Property && node === node.parent.value) {
+            // Allow computed(…) to declare a computed property.
+            return
+          }
+
+          // Support computed property assignments.
+          if (
+            node.parent.type === T.AssignmentExpression &&
+            node === node.parent.right
+          ) {
+            if (node.parent.left.type !== T.MemberExpression) {
+              throwSyntaxError(
+                'Computed assignments must be property assignments',
+                node
+              )
+            }
+            if (node.parent.operator !== '=') {
+              throwSyntaxError(
+                'Computed assignment must use "=" operator',
+                node
+              )
+            }
+
+            const key = node.parent.left.property
+
+            // Replace "." with "," because the object and property parts are
+            // being split into separate arguments.
+            result.overwrite(key.range[0] - 1, key.range[0], ', ')
+
+            // Replace "=" with "," because the compute function is the third
+            // argument to the $assign call.
+            result.overwrite(
+              key.range[1],
+              code.indexOf('=', key.range[0]) + 1,
+              ','
+            )
+
+            if (key.type === T.Identifier) {
+              // Stringify the property name.
+              result.overwrite(
+                key.range[0],
+                key.range[1],
+                JSON.stringify(key.name)
+              )
+            } else if (key.type === T.Literal) {
+              // Remove square braces for computed property keys.
+              result.remove(key.range[0] - 1, key.range[0])
+            } else {
+              // The property is dynamic.
+              result.appendLeft(key.range[0], '() => ')
+            }
+
+            // The `computed` call is replaced with an $assign call.
+            result.remove(...node.callee.range)
+
+            let prefix = ''
+            if (node.parent.left.object.type !== T.Identifier) {
+              prefix = '() => '
+            }
+
+            imports.add('$assign')
+            result.prependLeft(node.parent.range[0], '$assign(' + prefix)
+            result.appendRight(node.parent.range[1], ')')
+            return
+          }
+
+          const variableDeclarator =
+            node.parent.type === T.VariableDeclarator ? node.parent : undefined
+
+          if (!variableDeclarator) {
+            throwSyntaxError(
+              "Cannot use computed(…) outside of a const variable's initializer",
+              node
+            )
+          }
+          if (isReassignable(variableDeclarator)) {
+            throwSyntaxError(
+              `Expected 'const' keyword in computed variable declaration`,
+              variableDeclarator.parent
+            )
+          }
+
+          if (options.debug && variableDeclarator.id.type === T.Identifier) {
+            imports.add('$computedDEV')
+            result.overwrite(
+              node.callee.range[0],
+              node.callee.range[1],
+              '$computedDEV'
+            )
+            result.appendRight(
+              node.arguments[0].range[1],
+              `, ${JSON.stringify(variableDeclarator.id.name)}, this`
+            )
+          }
+        }
+      }
+    }
+
+    // Check for explicit proxy() wrappers.
+    const trackExplicitProxy = (
+      node: TSESTree.AssignmentExpression | TSESTree.VariableDeclarator
+    ) => {
+      const left = node.type === T.AssignmentExpression ? node.left : node.id
+      const right =
+        node.type === T.AssignmentExpression ? node.right : node.init
+
+      if (
+        left.type === T.Identifier &&
+        right?.type === T.CallExpression &&
+        hasCalleeNamed(right, 'proxy')
+      ) {
+        if (node.type === T.VariableDeclarator) {
+          const scope = findClosestScope(node)!
+          if (isInNestedFunctionScope(scope)) {
+            return
+          }
+        }
+        proxies.set(left.name, right)
+      }
+    }
+
+    traverse(root.body, {
+      visitors: {
+        [T.Identifier]: trackReferenceOrAssignment,
+        [T.ObjectExpression]: wrapProxyableLiteral,
+        [T.ArrayExpression]: wrapProxyableLiteral,
+        [T.ReturnStatement]: validateFactoryReturn,
+        [T.NewExpression]: rewriteProxyableCollection,
+        [T.CallExpression]: handleGlobalFunctionCall,
+        [T.AssignmentExpression]: trackExplicitProxy,
+        [T.VariableDeclarator]: trackExplicitProxy,
+        default(node) {
+          // Scope tracking
+          if (isBlockNode(node) && !scopes.has(node)) {
+            trackScope(node)
+          }
+        },
+      },
+    })
 
     for (const rootVariable of rootVariables.values()) {
       if (!rootVariable.reactive) {
@@ -729,29 +742,21 @@ function findClassConstructors(ast: TSESTree.Program) {
     | TSESTree.FunctionExpression
   )[] = []
 
-  const skipped = new WeakSet<TSESTree.Node>()
+  traverse(ast, {
+    enter(node, ctrl) {
+      if (
+        node.type === T.CallExpression &&
+        hasCalleeNamed(node, 'createClass') &&
+        (node.arguments[0].type === T.ArrowFunctionExpression ||
+          node.arguments[0].type === T.FunctionExpression)
+      ) {
+        constructors.push(node.arguments[0])
 
-  const enter = (node: TSESTree.Node, parent: TSESTree.Node | undefined) => {
-    if (parent && skipped.has(parent)) {
-      skipped.add(node)
-      return
-    }
-    if (skipped.has(node)) {
-      return
-    }
-
-    if (
-      node.type === T.CallExpression &&
-      hasCalleeNamed(node, 'createClass') &&
-      (node.arguments[0].type === T.ArrowFunctionExpression ||
-        node.arguments[0].type === T.FunctionExpression)
-    ) {
-      constructors.push(node.arguments[0])
-      skipped.add(node)
-    }
-  }
-
-  simpleTraverse(ast, { enter }, true)
+        // createClass cannot be nested.
+        ctrl.skip()
+      }
+    },
+  })
 
   return constructors
 }
