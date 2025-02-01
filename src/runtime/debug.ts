@@ -13,65 +13,14 @@ import {
   unstable_getInternalStates,
 } from 'valtio/vanilla'
 import { isAtom } from './atom'
+import { ValtioCall, ValtioTargetKind, ValtioUpdate } from './debug/event'
+import {
+  AnyValtioFilter,
+  filterPropertyKey,
+  ValtioFilter,
+  wild,
+} from './debug/filter'
 import { ReactiveInstance } from './instance'
-
-/** Pass this in your `pathFilter` to match any parts before, between, or after your filter. */
-export const wild = Symbol('valtio-kit/debug/wild')
-
-type Arrayable<T> = T | readonly T[]
-
-export type ValtioFilter = {
-  /**
-   * When true, this filter will exclude matches from being logged.
-   */
-  exclude?: boolean
-  /**
-   * When true, any event matching this filter will be logged with the
-   * `console.trace` method.
-   */
-  trace?: boolean
-  /**
-   * Called when an event matches this filter. A great place to put a
-   * `debugger` statement.
-   *
-   * The `value` argument depends on the type of event:
-   * - `update` events pass the new value
-   * - `call` events pass the arguments array
-   */
-  onMatch?: (value: any) => void
-  /**
-   * When true, any time a method is called on a proxy object matching this
-   * filter, the event will be logged.
-   */
-  logMethodCalls?: boolean
-  /**
-   * Only log events for target objects with an `id` property or debug ID that
-   * matches this filter. Pass a string for an exact match, or a RegExp for a
-   * regex match.
-   */
-  targetFilter?: string | RegExp | ((baseObject: object) => boolean)
-  /**
-   * When defined, only log events for target objects with a target kind that
-   * matches one of these values.
-   */
-  targetKindFilter?: Arrayable<ValtioTargetKind>
-  /**
-   * Only log events that affect a property path that matches this filter.
-   *
-   * Pass a string or symbol for an exact match, or a RegExp for a regex match.
-   * An array of these will act as a logical OR.
-   *
-   * Pass the `wild` symbol (exported by `valtio-kit/debug`) to match any parts
-   * before, between, or after your filter.
-   */
-  pathFilter?: readonly (typeof wild | Arrayable<string | symbol | RegExp>)[]
-  /**
-   * Only log calls to methods with a name that matches this filter.
-   *
-   * Note: This option implies `logMethodCalls: true` for this filter.
-   */
-  methodFilter?: string | RegExp
-}
 
 /** Symbol used to store a debug ID on a proxy object. */
 export const kDebugId = Symbol('valtio-kit/debug/id')
@@ -109,26 +58,6 @@ const { proxyCache, proxyStateMap } = unstable_getInternalStates()
 
 declare module globalThis {
   let valtioHook: ((event: string, ...args: unknown[]) => void) | undefined
-}
-
-export type ValtioTargetKind = 'variable' | 'instance' | 'proxy'
-
-export type ValtioEvent = {
-  targetId: string
-  target: object
-  targetKind: ValtioTargetKind
-  path: readonly (string | symbol)[]
-}
-
-export type ValtioUpdate = ValtioEvent & {
-  op: 'set' | 'delete'
-  value: unknown
-  oldValue: unknown
-}
-
-export type ValtioCall = ValtioEvent & {
-  method: string
-  args: unknown[]
 }
 
 // These types are not given an auto-generated debug ID.
@@ -211,7 +140,6 @@ export function inspectValtio(options: Options = {}) {
         'update',
         baseObject,
         path,
-        value,
         options,
         filters
       )
@@ -220,6 +148,8 @@ export function inspectValtio(options: Options = {}) {
       }
 
       if (onCall) {
+        const resolvedUpdatePath = event.resolvedPath
+
         const leafObject =
           path.length > 1 ? resolveLeafObject(baseObject, path) : baseObject
 
@@ -234,25 +164,38 @@ export function inspectValtio(options: Options = {}) {
             return
           }
           call.seen = true
-          return onCall(
-            {
+
+          const { method, args } = call
+          const event = resolveEventInfo(
+            'call',
+            leafObject,
+            [method.name],
+            options,
+            filters
+          )
+          if (event && (event.shouldLog || event.onMatch)) {
+            const call: ValtioCall = {
               targetId: event.targetId,
-              target: baseObject,
+              target: leafObject,
               targetKind: event.targetKind,
               // The path of an array update always ends with either an index or
               // the "length" key. Since we're logging a native Array method
               // call, it's better to omit them from the path.
-              path: event.resolvedPath.slice(0, -1),
-              method: call.method.name,
-              args: call.args,
-            },
-            event.resolvedOptions
-          )
+              path: resolvedUpdatePath.slice(0, -1),
+              method: method.name,
+              args,
+            }
+            if (event.shouldLog) {
+              onCall(call, event.resolvedOptions)
+            }
+            event.onMatch?.(call)
+          }
+          return
         }
       }
 
-      onUpdate(
-        {
+      if (event.shouldLog || event.onMatch) {
+        const update: ValtioUpdate = {
           targetId: event.targetId,
           target: baseObject,
           targetKind: event.targetKind,
@@ -260,14 +203,19 @@ export function inspectValtio(options: Options = {}) {
           op,
           value,
           oldValue,
-        },
-        event.resolvedOptions
-      )
+        }
+        if (event.shouldLog) {
+          onUpdate(update, event.resolvedOptions)
+        }
+        event.onMatch?.(update)
+      }
     } else if (event === 'call') {
       let [method, baseObject, args] = payload as [Function, object, unknown[]]
+
       const callStack = callStacks.get(baseObject) ?? []
       callStack.push({ method, args, seen: false })
       callStacks.set(baseObject, callStack)
+
       if (onCall && !isArray(baseObject)) {
         // Ignore methods from the ReactiveInstance class.
         if (method === ReactiveInstance.prototype[method.name as never]) {
@@ -277,24 +225,23 @@ export function inspectValtio(options: Options = {}) {
           'call',
           baseObject,
           [method.name],
-          args,
           options,
           filters
         )
-        return (
-          event &&
-          onCall(
-            {
-              targetId: event.targetId,
-              target: baseObject,
-              targetKind: event.targetKind,
-              path: [method.name],
-              method: 'call',
-              args,
-            },
-            event.resolvedOptions
-          )
-        )
+        if (event && (event.shouldLog || event.onMatch)) {
+          const call: ValtioCall = {
+            targetId: event.targetId,
+            target: baseObject,
+            targetKind: event.targetKind,
+            path: [method.name],
+            method: 'call',
+            args,
+          }
+          if (event.shouldLog) {
+            onCall(call, event.resolvedOptions)
+          }
+          event.onMatch?.(call)
+        }
       }
     } else if (event === 'return') {
       let [, baseObject] = payload as [Function, object, unknown[]]
@@ -318,7 +265,6 @@ function resolveEventInfo(
   type: 'update' | 'call',
   baseObject: object,
   path: readonly (string | symbol)[],
-  value: unknown,
   options: Options,
   filters: ValtioFilter[] | undefined
 ) {
@@ -330,7 +276,7 @@ function resolveEventInfo(
       isAtom(proxyObject) ||
       unIdentifiedTypes.includes(baseObject.constructor)
     ) {
-      return // Ignore certain unidentified proxies.
+      return null // Ignore certain unidentified proxies.
     }
     setDebugId(proxyObject)
     targetId = proxyObject[kDebugId] as string
@@ -357,12 +303,14 @@ function resolveEventInfo(
       : 'proxy'
 
   let { trace, logMethodCalls } = options
+  let shouldLog = true
+  let onMatch: ((event: ValtioUpdate | ValtioCall) => void) | undefined
 
   if (filters) {
     // If only exclusion filters are provided, we must assume an event
     // should be logged unless explicitly excluded. Otherwise, we'll assume
     // an event should *not* be logged unless explicitly included.
-    let shouldLog = filters.every(filter => filter.exclude)
+    shouldLog = filters.every(filter => filter.exclude)
 
     nextFilter: for (const {
       targetFilter,
@@ -370,7 +318,7 @@ function resolveEventInfo(
       pathFilter,
       methodFilter,
       ...filter
-    } of filters) {
+    } of filters as AnyValtioFilter[]) {
       // Do we care about the object being updated?
       if (
         targetKindFilter &&
@@ -437,23 +385,19 @@ function resolveEventInfo(
       if (filter.logMethodCalls !== undefined) {
         logMethodCalls = filter.logMethodCalls
       }
-
-      filter.onMatch?.(value)
+      if (filter.onMatch) {
+        onMatch = filter.onMatch
+      }
 
       // By this point, we know the filter was a match. Depending on the
       // `exclude` filter option, we either log or skip the event.
       shouldLog = !filter.exclude
       break
     }
-
-    // If we didn't find a match, skip this event.
-    if (!shouldLog) {
-      return null
-    }
   }
 
   if (!logMethodCalls && type === 'call') {
-    return null
+    shouldLog = false
   }
 
   const resolvedOptions =
@@ -466,23 +410,9 @@ function resolveEventInfo(
     targetKind,
     resolvedPath: path,
     resolvedOptions,
+    shouldLog,
+    onMatch,
   }
-}
-
-function filterPropertyKey(
-  key: string | symbol,
-  filter: Arrayable<string | RegExp | symbol>
-): boolean {
-  if (isArray(filter)) {
-    return filter.some(filter => filterPropertyKey(key, filter))
-  }
-  if (isString(filter) || isSymbol(filter)) {
-    return key === filter
-  }
-  if (isString(key) && filter instanceof RegExp) {
-    return filter.test(key)
-  }
-  return false
 }
 
 // The default onUpdate callback

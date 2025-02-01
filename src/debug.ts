@@ -1,7 +1,8 @@
-export {
-  inspectValtio,
-  setDebugId,
-  wild,
-  type ValtioFilter,
-  type ValtioUpdate,
-} from './runtime/debug'
+export { inspectValtio, setDebugId } from './runtime/debug'
+export type {
+  ValtioCall,
+  ValtioEvent,
+  ValtioTargetKind,
+  ValtioUpdate,
+} from './runtime/debug/event'
+export { wild, type ValtioFilter } from './runtime/debug/filter'
