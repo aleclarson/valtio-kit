@@ -1,4 +1,4 @@
-export { inspectValtio, setDebugId } from './runtime/debug'
+export { getDebugId, inspectValtio, setDebugId } from './runtime/debug'
 export type {
   ValtioCall,
   ValtioEvent,

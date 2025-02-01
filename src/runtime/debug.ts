@@ -29,6 +29,13 @@ export const kDebugContext = Symbol('valtio-kit/debug/context')
 
 const nextInstanceId: Record<string, number> = {}
 
+export function getDebugId(target: object) {
+  if (!unIdentifiedTypes.includes(target.constructor)) {
+    setDebugId(target)
+  }
+  return (target as any)[kDebugId] as string | undefined
+}
+
 /**
  * You can set a manual debug ID on a target object, or it will be generated
  * automatically. Arrays, maps, and sets don't have a debug ID unless you set
