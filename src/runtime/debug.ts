@@ -56,6 +56,12 @@ export type ValtioFilter = {
    * before, between, or after your filter.
    */
   pathFilter?: readonly (typeof wild | Arrayable<string | symbol | RegExp>)[]
+  /**
+   * Only log calls to methods with a name that matches this filter.
+   *
+   * Note: This option implies `logMethodCalls: true` for this filter.
+   */
+  methodFilter?: string | RegExp
 }
 
 /** Symbol used to store a debug ID on a proxy object. */
@@ -346,6 +352,7 @@ function resolveEventInfo(
       targetFilter,
       targetKindFilter,
       pathFilter,
+      methodFilter,
       ...filter
     } of filters) {
       // Do we care about the object being updated?
@@ -393,6 +400,19 @@ function resolveEventInfo(
             continue nextFilter
           }
         }
+      }
+
+      if (methodFilter) {
+        if (type !== 'call') {
+          continue nextFilter
+        }
+        const methodName = path[0] as string
+        if (isString(methodFilter)) {
+          if (methodName !== methodFilter) continue
+        } else if (methodFilter instanceof RegExp) {
+          if (!methodFilter.test(methodName)) continue
+        }
+        logMethodCalls = true
       }
 
       if (filter.trace !== undefined) {
