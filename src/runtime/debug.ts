@@ -259,6 +259,10 @@ export function inspectValtio(options: Options = {}) {
       callStack.push({ method, args, seen: false })
       callStacks.set(baseObject, callStack)
       if (onCall && !isArray(baseObject)) {
+        // Ignore methods from the ReactiveInstance class.
+        if (method === ReactiveInstance.prototype[method.name as never]) {
+          return
+        }
         const event = resolveEventInfo(
           'call',
           baseObject,
