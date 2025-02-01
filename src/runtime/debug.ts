@@ -31,6 +31,15 @@ export type ValtioFilter = {
    */
   trace?: boolean
   /**
+   * Called when an event matches this filter. A great place to put a
+   * `debugger` statement.
+   *
+   * The `value` argument depends on the type of event:
+   * - `update` events pass the new value
+   * - `call` events pass the arguments array
+   */
+  onMatch?: (value: any) => void
+  /**
    * When true, any time a method is called on a proxy object matching this
    * filter, the event will be logged.
    */
@@ -202,6 +211,7 @@ export function inspectValtio(options: Options = {}) {
         'update',
         baseObject,
         path,
+        value,
         options,
         filters
       )
@@ -267,6 +277,7 @@ export function inspectValtio(options: Options = {}) {
           'call',
           baseObject,
           [method.name],
+          args,
           options,
           filters
         )
@@ -307,6 +318,7 @@ function resolveEventInfo(
   type: 'update' | 'call',
   baseObject: object,
   path: readonly (string | symbol)[],
+  value: unknown,
   options: Options,
   filters: ValtioFilter[] | undefined
 ) {
@@ -425,6 +437,8 @@ function resolveEventInfo(
       if (filter.logMethodCalls !== undefined) {
         logMethodCalls = filter.logMethodCalls
       }
+
+      filter.onMatch?.(value)
 
       // By this point, we know the filter was a match. Depending on the
       // `exclude` filter option, we either log or skip the event.
