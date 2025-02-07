@@ -154,6 +154,7 @@ Check out the `docs/` folder for more information.
 - [Hooks](/docs/hooks.md)
 - [Computed Bindings](/docs/computed.md)
 - [Gotchas](/docs/gotchas.md)
+- [Debugging](/docs/debug.md)
 
 It's also recommended to read the API reference below.
 
