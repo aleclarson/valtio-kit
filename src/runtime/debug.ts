@@ -3,6 +3,7 @@ import {
   isArray,
   isFunction,
   isIntString,
+  isNumber,
   isString,
   isSymbol,
   last,
@@ -47,7 +48,7 @@ export function setDebugId(target: object, debugId?: string) {
       return
     }
     const className = target.constructor.name
-    if ('id' in target && isString(target.id)) {
+    if ('id' in target && (isString(target.id) || isNumber(target.id))) {
       debugId = `${className}(${target.id})`
     } else {
       const instanceId = nextInstanceId[className] ?? 1
