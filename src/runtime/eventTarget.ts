@@ -1,6 +1,8 @@
 import { isBoolean } from 'radashi'
 
-const kEventTypes = Symbol.for('valtio-kit.eventTypes')
+export declare namespace createEventTarget {
+  const EVENT_TYPES: unique symbol
+}
 
 export function createEventTarget<TEvents extends object>() {
   type EventArgs<TEventKey extends keyof TEvents> = Extract<
@@ -92,7 +94,8 @@ export function createEventTarget<TEvents extends object>() {
 }
 
 export interface EventTarget<TEvents extends object> {
-  [kEventTypes]?: TEvents
+  /** @internal */
+  [createEventTarget.EVENT_TYPES]?: TEvents
 
   /**
    * Add an event listener.
