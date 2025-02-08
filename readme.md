@@ -148,13 +148,16 @@ There are a few rules to keep in mind inside a `createClass` factory function:
 
 Check out the `docs/` folder for more information.
 
-- [Variables](/docs/variables.md)
-- [Parameters](/docs/parameters.md)
-- [Objects](/docs/objects.md)
-- [React Integration](/docs/react.md)
-- [Computed Bindings](/docs/computed.md)
-- [Gotchas](/docs/gotchas.md)
-- [Debugging](/docs/debug.md)
+- **Basics**
+  - [Variables](/docs/variables.md)
+  - [Parameters](/docs/parameters.md)
+  - [Objects](/docs/objects.md)
+  - [React Integration](/docs/react.md)
+  - [Computed Bindings](/docs/computed.md)
+- **Advanced**
+  - [Gotchas](/docs/gotchas.md)
+  - [Debugging](/docs/debug.md)
+  - [Class Extensions](/docs/class-extension.md)
 
 It's also recommended to read the API reference below.
 
