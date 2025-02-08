@@ -36,8 +36,7 @@
   "files": [
     "dist",
     "*.d.ts",
-    "react/dist",
-    "react/*.d.ts"
+    "react/dist"
   ],
   "license": "MIT",
   "author": "Alec Larson",
