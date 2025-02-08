@@ -47,6 +47,7 @@
   },
   "prettier": "@alloc/prettier-config",
   "scripts": {
+    "prepublishOnly": "pnpm -r build",
     "dev": "rimraf dist && tsup --sourcemap --watch",
     "build": "rimraf dist && tsup",
     "lint": "tsc-lint",
