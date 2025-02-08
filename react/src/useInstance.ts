@@ -1,12 +1,12 @@
 import { isClass } from 'radashi'
 import { useEffect, useMemo, useRef } from 'react'
-import {
+import type {
   InstanceFactory,
   ReactiveClass,
   ReactiveInstance,
   ReactiveProxy,
-} from '../runtime/instance'
-import { EffectScope } from '../runtime/scope'
+} from 'valtio-kit'
+import { EffectScope } from 'valtio-kit/runtime'
 
 /**
  * Create a new instance of the factory.

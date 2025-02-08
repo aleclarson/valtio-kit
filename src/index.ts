@@ -6,7 +6,11 @@ export {
   type Snapshot,
 } from 'valtio/vanilla'
 export { computed } from './runtime/computed'
-export { createClass } from './runtime/createClass'
+export {
+  addClassExtension,
+  createClass,
+  type ReactiveClass,
+} from './runtime/createClass'
 export {
   on,
   onMount,
@@ -16,10 +20,10 @@ export {
   watch,
   type Cleanup,
 } from './runtime/effects'
-export { EventTarget, createEventTarget } from './runtime/eventTarget'
+export { createEventTarget, EventTarget } from './runtime/eventTarget'
 export {
   ReactiveInstance,
-  type ReactiveClass,
+  type InstanceFactory,
   type ReactiveProxy,
 } from './runtime/instance'
 export { proxy } from './runtime/proxy'

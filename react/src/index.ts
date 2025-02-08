@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { setAllowAutoSetup } from '../runtime/scope'
+import { setAllowAutoSetup } from 'valtio-kit/runtime'
 
 // Do not immediately retain a reactive instance created during a render pass.
 // This prevents memory leaks when a render is cancelled.
@@ -28,6 +28,8 @@ setAllowAutoSetup(() => {
   return ReactSharedInternals.ReactCurrentDispatcher.current === null
 })
 
+export * from 'valtio-kit'
+
 export { useSnapshot } from 'valtio/react'
-export * from '../index'
+export { createContextHooks } from './context'
 export { useInstance } from './useInstance'

@@ -1,8 +1,10 @@
-import { InstanceFactory, ReactiveClass, ReactiveInstance } from './instance'
+import { InstanceFactory, ReactiveInstance, ReactiveProxy } from './instance'
 import { EffectScope } from './scope'
 import { unnest } from './unnest'
 
 declare const process: { env: Record<string, string | undefined> }
+
+const classExtensions: ReactiveClass.Extension[] = []
 
 /**
  * Creates a `class` that produces a reactive object. The given `factory`
@@ -19,7 +21,7 @@ export function createClass<TFactory extends InstanceFactory>(
   factory: TFactory,
   name = factory.name
 ): ReactiveClass<TFactory> {
-  const { [name]: newClass } = {
+  let { [name]: newClass } = {
     [name]: class extends ReactiveInstance<TFactory> {
       constructor(...args: Parameters<TFactory>) {
         super()
@@ -44,9 +46,13 @@ export function createClass<TFactory extends InstanceFactory>(
   // desired class name is visible to devtools without nesting the constructor
   // code inside the `new Function` call.
   if (process.env.NODE_ENV === 'development' && name !== '') {
-    return new Function('Super', `return class ${name} extends Super {}`)(
+    newClass = new Function('Super', `return class ${name} extends Super {}`)(
       newClass
     )
+  }
+
+  for (const applyExtension of classExtensions) {
+    applyExtension(newClass)
   }
 
   return newClass as any
@@ -57,4 +63,19 @@ function copyDescriptors<T extends object>(target: T, source: object): T {
     target,
     Object.getOwnPropertyDescriptors(source)
   )
+}
+
+/**
+ * A class for creating reactive instances with a specific factory.
+ */
+export interface ReactiveClass<TFactory extends InstanceFactory> {
+  new (...args: Parameters<TFactory>): ReactiveProxy<TFactory>
+}
+
+export declare namespace ReactiveClass {
+  export type Extension = (constructor: ReactiveClass<InstanceFactory>) => void
+}
+
+export function addClassExtension(extension: ReactiveClass.Extension) {
+  classExtensions.push(extension)
 }

@@ -1,5 +1,5 @@
+import type { ReactiveClass } from './createClass'
 import type { Cleanup } from './effects'
-import type { ReactiveClass } from './instance'
 
 let activeScope: EffectScope | null = null
 

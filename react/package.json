@@ -1,0 +1,14 @@
+{
+  "private": true,
+  "dependencies": {
+    "valtio-kit": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": "*",
+    "valtio": "*"
+  },
+  "scripts": {
+    "dev": "rimraf dist && tsup --sourcemap --watch",
+    "build": "rimraf dist && tsup"
+  }
+}

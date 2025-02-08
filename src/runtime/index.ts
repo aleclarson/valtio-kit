@@ -7,4 +7,5 @@ export {
   computed,
 } from './computed'
 export * from './effects'
+export { EffectScope, setAllowAutoSetup } from './scope'
 export { unnest as $unnest } from './unnest'
