@@ -81,5 +81,10 @@
     "react": "*",
     "valtio": "*",
     "vite": "*"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
   }
 }
