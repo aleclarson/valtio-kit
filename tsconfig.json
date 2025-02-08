@@ -1,5 +1,5 @@
 {
-  "include": ["src"],
+  "include": ["src", "react"],
   "compilerOptions": {
     "strict": true,
     "lib": ["esnext"],

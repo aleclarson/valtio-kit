@@ -47,12 +47,14 @@
   "prettier": "@alloc/prettier-config",
   "scripts": {
     "prepublishOnly": "pnpm -r build",
-    "dev": "rimraf dist && tsup --sourcemap --watch",
+    "dev": "pnpm -r build --sourcemap && pnpm --parallel build:dev",
     "build": "rimraf dist && tsup",
+    "build:dev": "watchlist src tsup.config.ts tsconfig.json -- tsup --sourcemap",
     "lint": "tsc-lint",
     "test": "vitest"
   },
   "devDependencies": {
+    "@aleclarson/watchlist": "^0.3.3",
     "@alloc/prettier-config": "^1.0.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.1.0",

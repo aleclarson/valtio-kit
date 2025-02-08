@@ -9,7 +9,7 @@
     "valtio": "*"
   },
   "scripts": {
-    "dev": "rimraf dist && tsup --sourcemap --watch",
-    "build": "rimraf dist && tsup"
+    "build": "rimraf dist && tsup",
+    "build:dev": "watchlist src tsup.config.ts -- tsup --sourcemap"
   }
 }
