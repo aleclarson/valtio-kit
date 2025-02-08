@@ -15,10 +15,10 @@ addClassExtension(constructor => {
   constructor.Provider = Context.Provider
 })
 
-export function createContextHooks({
+export function createContextHooks<TFactory extends InstanceFactory>({
   name,
   Context,
-}: ReactiveClass<InstanceFactory>) {
+}: ReactiveClass<TFactory>) {
   const useContext = () => React.use(Context)
   const useContextOrThrow = () => {
     const context = React.use(Context)
