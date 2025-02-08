@@ -151,7 +151,7 @@ Check out the `docs/` folder for more information.
 - [Variables](/docs/variables.md)
 - [Parameters](/docs/parameters.md)
 - [Objects](/docs/objects.md)
-- [Hooks](/docs/hooks.md)
+- [React Integration](/docs/react.md)
 - [Computed Bindings](/docs/computed.md)
 - [Gotchas](/docs/gotchas.md)
 - [Debugging](/docs/debug.md)

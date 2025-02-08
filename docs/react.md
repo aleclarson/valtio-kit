@@ -1,4 +1,4 @@
-# React Hooks
+# React Integration
 
 - There are 2 hooks in valtio-kit: `useInstance` and `useSnapshot`.
 - `useInstance` creates an instance of a reactive class. It also sets up any persistent effects declared in the reactive class, and cleans them up when the component unmounts.
