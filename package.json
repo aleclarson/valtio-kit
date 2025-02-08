@@ -2,7 +2,7 @@
   "name": "valtio-kit",
   "description": "Valtio enhanced with Vite superpowers",
   "type": "module",
-  "version": "0.1.17",
+  "version": "0.1.18",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
