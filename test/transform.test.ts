@@ -135,6 +135,27 @@ describe('valtio-kit', () => {
     `)
   })
 
+  test('return arrow function', async () => {
+    const code = await transform('return-arrow-function.ts')
+    expect(code).toMatchInlineSnapshot(`
+      "import { $atom } from '/@fs//path/to/valtio-kit/runtime.js'
+      import { createClass } from "valtio-kit";
+      export const Counter = createClass(() => {
+        let status = $atom(null);
+        return () => ({
+          status,
+          setStatus(newStatus) {
+            status.value = newStatus;
+          },
+          reset() {
+            status.value = null;
+          }
+        });
+      }, "Counter");
+      "
+    `)
+  })
+
   test('subscribe', async () => {
     const code = await transform('subscribe.ts')
     expect(code).toMatchInlineSnapshot(`

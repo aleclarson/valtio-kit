@@ -16,7 +16,9 @@ export type InstanceState = object & {
 /**
  * The type constraint for a `createClass` factory.
  */
-export type InstanceFactory = (...args: any[]) => InstanceState
+export type InstanceFactory<TState extends InstanceState = InstanceState> = (
+  ...args: any[]
+) => TState | (() => TState)
 
 /**
  * The class extended by all reactive instances.
@@ -27,7 +29,9 @@ export type InstanceFactory = (...args: any[]) => InstanceState
  */
 export abstract class ReactiveInstance<TFactory extends InstanceFactory> {
   // Does not exist at runtime.
-  declare protected $data: ReturnType<TFactory>
+  declare protected $data: TFactory extends InstanceFactory<infer TState>
+    ? TState
+    : never
 
   // The store for persistent effects and update handlers.
   declare protected [EffectScope.symbol]: EffectScope
@@ -58,4 +62,6 @@ export abstract class ReactiveInstance<TFactory extends InstanceFactory> {
  */
 export type ReactiveProxy<TFactory extends InstanceFactory> =
   ReactiveInstance<TFactory> &
-    Readonly<Omit<ReturnType<TFactory>, keyof InstanceState>>
+    (TFactory extends InstanceFactory<infer TState>
+      ? Readonly<Omit<TState, keyof InstanceState>>
+      : never)

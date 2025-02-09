@@ -1,3 +1,4 @@
+import { isFunction } from 'radashi'
 import { InstanceFactory, ReactiveInstance, ReactiveProxy } from './instance'
 import { EffectScope } from './scope'
 import { unnest } from './unnest'
@@ -58,7 +59,13 @@ export function createClass<TFactory extends InstanceFactory>(
   return newClass as any
 }
 
-function copyDescriptors<T extends object>(target: T, source: object): T {
+function copyDescriptors<T extends object>(
+  target: T,
+  source: object | (() => object)
+): T {
+  if (isFunction(source)) {
+    source = source()
+  }
   return Object.defineProperties(
     target,
     Object.getOwnPropertyDescriptors(source)

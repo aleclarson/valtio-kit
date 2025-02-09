@@ -168,11 +168,18 @@ export function transform(
       return Boolean(watchCallback && !isBeingAssigned(node, watchCallback))
     }
 
-    const isRootScope = (scope: BlockScope) => {
+    const isRootScope = (
+      scope: BlockScope,
+      allowArrowFunction = true
+    ): boolean => {
       return (
         scope.parent === undefined ||
         (scope.node.type === T.BlockStatement &&
-          scope.parent.parent === undefined)
+          scope.parent.parent === undefined) ||
+        (allowArrowFunction &&
+          scope.node.type === T.ArrowFunctionExpression &&
+          scope.node.parent.type === T.ReturnStatement &&
+          isRootScope(scope.parent, false))
       )
     }
 
@@ -221,6 +228,21 @@ export function transform(
       return refs.length > 0 && refs.every(isRootReference)
     }
 
+    const isReactiveObjectLiteral = (node: TSESTree.ObjectExpression) => {
+      let parent = node.parent
+      while (parent.type === T.Property || parent.type === T.ObjectExpression) {
+        parent = parent.parent
+      }
+      if (
+        parent.type === T.ReturnStatement ||
+        (parent.type === T.ArrowFunctionExpression && parent.body === node)
+      ) {
+        const scope = findClosestScope(node)!
+        return !isInNestedFunctionScope(scope)
+      }
+      return false
+    }
+
     const trackReferenceOrAssignment = (node: TSESTree.Identifier) => {
       const { parent } = node
 
@@ -258,19 +280,7 @@ export function transform(
         parent.parent.type === T.ObjectExpression
       ) {
         const objectLiteral = parent.parent
-        const scope = findClosestScope(objectLiteral)!
-        const returnStmt = findParentNode(
-          objectLiteral,
-          parent =>
-            parent.type === T.ReturnStatement ||
-            parent.type === T.CallExpression,
-          scope.node
-        )
-
-        if (
-          returnStmt?.type === T.ReturnStatement &&
-          !isInNestedFunctionScope(scope)
-        ) {
+        if (isReactiveObjectLiteral(objectLiteral)) {
           // Allow reactive variables to be returned, where createClass can
           // subscribe to them.
           const rootVariable = matchRootVariable(node)
@@ -372,7 +382,19 @@ export function transform(
         return
       }
       if (!node.argument || node.argument.type !== T.ObjectExpression) {
-        throwSyntaxError('You must return an object literal', node)
+        if (node.argument?.type === T.ArrowFunctionExpression) {
+          if (node.argument.body.type === T.ObjectExpression) {
+            return
+          }
+          throwSyntaxError(
+            'When returning an arrow function, its body must be an object literal',
+            node
+          )
+        }
+        throwSyntaxError(
+          'You must return an object literal or an arrow function',
+          node
+        )
       }
     }
 
