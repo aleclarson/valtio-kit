@@ -5,6 +5,7 @@
     "moduleResolution": "bundler",
     "target": "esnext",
     "lib": ["esnext", "dom"],
-    "types": ["../../globals.d.ts"]
+    "types": ["../../globals.d.ts"],
+    "strict": true
   }
 }
