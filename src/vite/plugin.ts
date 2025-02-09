@@ -48,7 +48,7 @@ export function valtioKit(options: Options = {}): Plugin {
     }),
     async transform(code, id) {
       if (
-        this.environment.mode === 'dev' &&
+        this.environment.config.mode !== 'production' &&
         /\/valtio\/esm\/vanilla.mjs\b/.test(id)
       ) {
         console.log('Applying debug transform to Valtio...')
@@ -60,7 +60,7 @@ export function valtioKit(options: Options = {}): Plugin {
       }
       const result = transform(code, id, runtimePath, {
         ...options,
-        debug: this.environment.mode === 'dev',
+        debug: this.environment.config.mode !== 'production',
       })
       if (result && options.onTransform) {
         options.onTransform(result.code, id)

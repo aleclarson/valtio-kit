@@ -261,6 +261,7 @@ async function transform(fixtureId: string, options: Options = {}) {
 
   const server = await createServer({
     root,
+    mode: 'production',
     logLevel: 'silent',
     configFile: false,
     plugins: [
