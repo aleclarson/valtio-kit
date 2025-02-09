@@ -750,6 +750,7 @@ function findClassConstructors(ast: TSESTree.Program) {
         (node.arguments[0].type === T.ArrowFunctionExpression ||
           node.arguments[0].type === T.FunctionExpression)
       ) {
+        node.arguments[0].parent = node
         constructors.push(node.arguments[0])
 
         // createClass cannot be nested.
