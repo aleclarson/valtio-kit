@@ -51,6 +51,17 @@ export class EffectScope {
     activeScope!.updateEffects ||= []
     activeScope!.updateEffects.push(effect)
   }
+
+  static run(callback: () => void) {
+    const scope = new EffectScope()
+    scope.enter()
+    try {
+      callback()
+    } finally {
+      scope.leave()
+    }
+    return scope
+  }
 }
 
 let allowAutoSetup = () => true
