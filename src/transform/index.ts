@@ -24,7 +24,6 @@ export function transform(
   const constructors = findClassConstructors(ast)
 
   const result = new MagicString(code)
-  const imports = new Set<string>()
 
   for (const root of constructors) {
     if (root.body.type !== T.BlockStatement) {
@@ -311,7 +310,8 @@ export function transform(
       }
     }
 
-    // Wrap object/array literals in $proxy if being assigned to a reactive variable.
+    // Wrap object/array literals with `proxy(…)` if being assigned to a
+    // reactive variable.
     const wrapProxyableLiteral = (
       node: TSESTree.ObjectExpression | TSESTree.ArrayExpression
     ) => {
@@ -340,7 +340,7 @@ export function transform(
         proxies.set(context.id.name, node)
       }
 
-      // Wrap object literals in $unnest if they contain computed properties.
+      // Wrap object literals with `unnest(…)` if they contain computed properties.
       if (node.type === T.ObjectExpression) {
         const container = findParentNode(
           node,
@@ -349,7 +349,7 @@ export function transform(
             parent.type === T.ReturnStatement ||
             parent.type === T.VariableDeclarator
         )
-        // Never wrap a returned object literal in $unnest.
+        // Never wrap a returned object literal with `unnest(…)`.
         if (container && container.type !== T.ReturnStatement) {
           const computedProperty = node.properties.find(
             property =>
@@ -359,8 +359,7 @@ export function transform(
           ) as TSESTree.Property | undefined
 
           if (computedProperty) {
-            imports.add('$unnest')
-            result.prependLeft(node.range[0], '$unnest(')
+            result.prependLeft(node.range[0], 'V.unnest(')
             result.appendRight(node.range[1], ')')
 
             if (
@@ -406,9 +405,9 @@ export function transform(
 
       const proxyFunc =
         node.callee.name === 'Map'
-          ? '$proxyMap'
+          ? 'V.proxyMap'
           : node.callee.name === 'Set'
-            ? '$proxySet'
+            ? 'V.proxySet'
             : null
 
       if (proxyFunc && isGlobalCallTo(node, node.callee.name)) {
@@ -434,8 +433,6 @@ export function transform(
             proxies.set(assignment.id.name, node)
           }
 
-          imports.add(proxyFunc)
-
           // Remove the 'new' keyword.
           result.remove(node.range[0], node.callee.range[0])
 
@@ -450,9 +447,6 @@ export function transform(
       const globalFunction = globalFunctions.find(name =>
         isGlobalCallTo(node, name)
       )
-      if (globalFunction && options.globals) {
-        imports.add(globalFunction)
-      }
       if (globalFunction === 'watch' || globalFunction === 'computed') {
         // Throw if the first argument is not a function.
         const watchCallback = node.arguments[0]
@@ -502,7 +496,7 @@ export function transform(
             result.overwrite(key.range[0] - 1, key.range[0], ', ')
 
             // Replace "=" with "," because the compute function is the third
-            // argument to the $assign call.
+            // argument to the `assign` call.
             result.overwrite(
               key.range[1],
               code.indexOf('=', key.range[0]) + 1,
@@ -524,7 +518,7 @@ export function transform(
               result.appendLeft(key.range[0], '() => ')
             }
 
-            // The `computed` call is replaced with an $assign call.
+            // The `computed` call is replaced with an `assign` call.
             result.remove(...node.callee.range)
 
             let prefix = ''
@@ -532,8 +526,7 @@ export function transform(
               prefix = '() => '
             }
 
-            imports.add('$assign')
-            result.prependLeft(node.parent.range[0], '$assign(' + prefix)
+            result.prependLeft(node.parent.range[0], 'V.assign(' + prefix)
             result.appendRight(node.parent.range[1], ')')
             return
           }
@@ -555,11 +548,10 @@ export function transform(
           }
 
           if (options.debug && variableDeclarator.id.type === T.Identifier) {
-            imports.add('$computedDEV')
             result.overwrite(
               node.callee.range[0],
               node.callee.range[1],
-              '$computedDEV'
+              'V.computedDEV'
             )
             result.appendRight(
               node.arguments[0].range[1],
@@ -617,7 +609,7 @@ export function transform(
         continue
       }
 
-      transformReactiveVariable(rootVariable, result, imports, !!options.debug)
+      transformReactiveVariable(rootVariable, result, !!options.debug)
 
       for (const id of rootVariable.references) {
         let prefix = ''
@@ -655,8 +647,7 @@ export function transform(
             parent.type === T.VariableDeclarator
         )
         if (container && container.type !== T.ReturnStatement) {
-          imports.add('$unnest')
-          result.appendLeft(objectLiteral.range[0], '$unnest(')
+          result.appendLeft(objectLiteral.range[0], 'V.unnest(')
           result.appendLeft(objectLiteral.range[1], ')')
         }
       }
@@ -664,15 +655,14 @@ export function transform(
 
     for (const [name, node] of proxies) {
       if (node.type !== T.ArrayExpression && node.type !== T.ObjectExpression) {
-        // Only object/array literals need $proxy() transformation.
+        // Only object/array literals need V.proxy() transformation.
         continue
       }
-      // Both $atom and $unnest have the same effect on object/array literals as
-      // $proxy has, so it would be redundant to add $proxy here.
+      // Both `atom` and `unnest` have the same effect on object/array literals
+      // as `proxy` has, so it would be redundant to add `proxy` here.
       const rootVariable = rootVariables.get(name)
       if (!rootVariable?.reactive && !unnestedProxies.has(name)) {
-        imports.add('$proxy')
-        result.prependLeft(node.range[0], '$proxy(')
+        result.prependLeft(node.range[0], 'V.proxy(')
         result.appendRight(node.range[1], ')')
       }
     }
@@ -690,26 +680,7 @@ export function transform(
     return
   }
 
-  // Avoid auto-importing anything that's been explicitly imported.
-  for (const node of ast.body) {
-    if (node.type !== T.ImportDeclaration) {
-      continue
-    }
-    for (const spec of node.specifiers) {
-      if (
-        spec.type === T.ImportSpecifier &&
-        spec.imported.type === T.Identifier
-      ) {
-        imports.delete(spec.imported.name)
-      }
-    }
-  }
-
-  if (imports.size > 0) {
-    result.prepend(
-      `import { ${Array.from(imports).join(', ')} } from '${runtimePath}'\n`
-    )
-  }
+  result.prepend(`import * as V from '${runtimePath}'\n`)
 
   return {
     code: result.toString(),
@@ -1136,14 +1107,13 @@ function findRootVariables(
 function transformReactiveVariable(
   variable: RootVariable,
   result: MagicString,
-  imports: Set<string>,
   debug: boolean
 ) {
   if (variable.isComputed) {
     return
   }
 
-  const atomFunc = debug ? '$atomDEV' : '$atom'
+  const atomFunc = debug ? 'V.atomDEV' : 'V.atom'
 
   if (variable.isParam) {
     const factoryFunc = variable.scope as
@@ -1160,7 +1130,6 @@ function transformReactiveVariable(
         factoryFunc.body.range[0] + 1,
         `\n  ${name} = ${atomFunc}(${args});`
       )
-      imports.add(atomFunc)
     }
   }
   // Handle variables declared with `let` or `var`.
@@ -1168,7 +1137,6 @@ function transformReactiveVariable(
     const variableDeclarator = variable.id.parent
     const debugArg = debug && `, ${JSON.stringify(variable.id.name)}, this`
 
-    imports.add(atomFunc)
     if (variableDeclarator.init) {
       result.prependLeft(variableDeclarator.init.range[0], `${atomFunc}(`)
       result.appendRight(
@@ -1192,7 +1160,6 @@ function transformReactiveVariable(
       const name = variable.id.name
       const args = debug ? `${name}, ${JSON.stringify(name)}, this` : name
 
-      imports.add(atomFunc)
       result.appendLeft(
         variableDeclarator.parent.range[1],
         ` ${name} = ${atomFunc}(${args});`
