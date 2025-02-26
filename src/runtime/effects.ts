@@ -10,7 +10,8 @@ export type Cleanup = () => void
  * when its parent component is mounted).
  *
  * You must return a cleanup function, which is called when the reactive
- * instance is released (i.e. when its parent component is unmounted).
+ * instance is no longer needed (e.g. the React component that owned it was
+ * unmounted).
  */
 export const onMount = EffectScope.addSetupEffect
 
@@ -18,6 +19,12 @@ export const onMount = EffectScope.addSetupEffect
  * Receive the latest arguments when the parent component rerenders.
  */
 export const onUpdate = EffectScope.addUpdateEffect
+
+/**
+ * Declare a side effect that runs when the reactive instance is no longer
+ * needed (e.g. the React component that owned it was unmounted).
+ */
+export const onUnmount = EffectScope.addCleanupEffect
 
 /**
  * Declare a side effect that runs when the component mounts. Any reactive

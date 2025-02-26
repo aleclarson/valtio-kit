@@ -80,6 +80,11 @@ export class EffectScope {
     currentScope!.updateEffects.push(effect)
   }
 
+  static addCleanupEffect(effect: Cleanup) {
+    currentScope!.cleanupEffects ||= []
+    currentScope!.cleanupEffects.push(effect)
+  }
+
   static run(callback: () => void) {
     const scope = new EffectScope()
     scope.run(callback)

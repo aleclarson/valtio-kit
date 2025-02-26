@@ -14,6 +14,7 @@ export {
 export {
   on,
   onMount,
+  onUnmount,
   onUpdate,
   subscribe,
   subscribeKey,

@@ -786,6 +786,7 @@ const effectFunctions = [
   'computed',
   'on',
   'onMount',
+  'onUnmount',
   'onUpdate',
   'subscribe',
   'subscribeKey',
