@@ -164,10 +164,10 @@ describe('valtio-kit', () => {
       export const Test = createClass(() => {
         let a = V.atom(0);
         const b = V.proxy({ c: 1 });
-        subscribe(a, () => {
+        V.subscribe(a, () => {
           console.log("a changed to", a.value);
         });
-        subscribe(b, () => {
+        V.subscribe(b, () => {
           console.log("b changed to", b);
         });
         return {};
@@ -186,7 +186,7 @@ describe('valtio-kit', () => {
         const b = V.proxy({ c: { d: 1 } });
         let array = V.atom([]);
         let map = /* @__PURE__ */ V.atom(V.proxyMap());
-        watch(($get) => {
+        V.watch(($get) => {
           $get(a).value;
           a.value++;
           a.value = 1;
@@ -210,17 +210,17 @@ describe('valtio-kit', () => {
       import { createClass } from "valtio-kit";
       export const Test1 = createClass((a, b = 0) => {
         a = V.atom(a);
-        onUpdate((...args) => [a.value] = args);
+        V.onUpdate((...args) => [a.value] = args);
         return {};
       }, "Test1");
       export const Test2 = createClass(({ a, b = 0 }) => {
         a = V.atom(a);
-        onUpdate((...args) => ({ a: a.value } = args[0]));
+        V.onUpdate((...args) => ({ a: a.value } = args[0]));
         return {};
       }, "Test2");
       export const Test3 = createClass((a, b = 0) => {
         a = V.atom(a);
-        onUpdate((...args) => {
+        V.onUpdate((...args) => {
           a.value = args[0];
         });
         return {};
@@ -237,15 +237,15 @@ describe('valtio-kit', () => {
       export const Test = createClass((options) => {
         options = proxy(options);
         const a = V.unnest({
-          b: computed(($get) => $get(options).b),
+          b: V.computed(($get) => $get(options).b),
           c: 0
         });
         V.assign(a, "c", (($get) => $get(options).c));
-        const d = computed(($get) => $get(a).b + $get(a).c);
+        const d = V.computed(($get) => $get(a).b + $get(a).c);
         return {
           a,
           d,
-          e: computed(($get) => $get(a).b + $get(a).c)
+          e: V.computed(($get) => $get(a).b + $get(a).c)
         };
       }, "Test");
       "
