@@ -133,6 +133,13 @@ declare global {
    * rerun when any of them change.
    */
   const watch: typeof valtioKit.watch
+  /**
+   * Run a callback when a reactive condition is truthy.
+   *
+   * Your callback may set up its own side effects, which will be cleaned up
+   * when the condition is no longer met.
+   */
+  const when: typeof valtioKit.when
 }
 
 export {}
