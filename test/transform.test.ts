@@ -7,11 +7,11 @@ describe('valtio-kit', () => {
   test('let variable', async () => {
     const code = await transform('let-variable.ts')
     expect(code).toMatchInlineSnapshot(`
-      "import { $proxyMap, $proxySet, $atom, $proxy } from '/@fs//path/to/valtio-kit/runtime.js'
+      "import * as V from '/@fs//path/to/valtio-kit/runtime.js'
       import { createClass } from "valtio-kit";
       export const Test = createClass(() => {
-        let a = $atom(0);
-        let b = $atom({
+        let a = V.atom(0);
+        let b = V.atom({
           c: 0,
           d: 0,
           // Nested objects/arrays are not wrapped with $proxy, but they will still be
@@ -19,9 +19,9 @@ describe('valtio-kit', () => {
           nestedObject: {},
           nestedArray: []
         });
-        let c = $atom([]);
-        let d = /* @__PURE__ */ $atom($proxyMap());
-        let e = /* @__PURE__ */ $atom($proxySet());
+        let c = V.atom([]);
+        let d = /* @__PURE__ */ V.atom(V.proxyMap());
+        let e = /* @__PURE__ */ V.atom(V.proxySet());
         let f = () => {
           a.value++;
           b.value = { c: 1, d: 1, nestedObject: {}, nestedArray: [] };
@@ -30,18 +30,18 @@ describe('valtio-kit', () => {
           b.value.d;
           c.value = [1];
           c.value.push(2);
-          d.value = /* @__PURE__ */ $proxyMap();
+          d.value = /* @__PURE__ */ V.proxyMap();
           d.value.set(1, 1);
-          e.value = /* @__PURE__ */ $proxySet();
+          e.value = /* @__PURE__ */ V.proxySet();
           e.value.add(1);
           let nestedVar = 0;
           nestedVar++;
         };
         let a2 = 0;
-        let b2 = $proxy({});
-        let c2 = $proxy([]);
-        let d2 = /* @__PURE__ */ $proxyMap();
-        let e2 = /* @__PURE__ */ $proxySet();
+        let b2 = V.proxy({});
+        let c2 = V.proxy([]);
+        let d2 = /* @__PURE__ */ V.proxyMap();
+        let e2 = /* @__PURE__ */ V.proxySet();
         return {
           f,
           a2,
@@ -58,14 +58,14 @@ describe('valtio-kit', () => {
   test('const variable', async () => {
     const code = await transform('const-variable.ts')
     expect(code).toMatchInlineSnapshot(`
-      "import { $proxyMap, $proxySet, $proxy } from '/@fs//path/to/valtio-kit/runtime.js'
+      "import * as V from '/@fs//path/to/valtio-kit/runtime.js'
       import { createClass } from "valtio-kit";
       export const Test = createClass(() => {
         const a = 0;
-        const b = $proxy({});
-        const c = $proxy([]);
-        const d = /* @__PURE__ */ $proxyMap();
-        const e = /* @__PURE__ */ $proxySet();
+        const b = V.proxy({});
+        const c = V.proxy([]);
+        const d = /* @__PURE__ */ V.proxyMap();
+        const e = /* @__PURE__ */ V.proxySet();
         const f = () => {
           const nestedConst = { a: 1 };
           nestedConst.a++;
@@ -79,13 +79,13 @@ describe('valtio-kit', () => {
   test('destructured variable', async () => {
     const code = await transform('destructured-variable.ts')
     expect(code).toMatchInlineSnapshot(`
-      "import { $atom } from '/@fs//path/to/valtio-kit/runtime.js'
+      "import * as V from '/@fs//path/to/valtio-kit/runtime.js'
       import { createClass } from "valtio-kit";
       export const Point2D = createClass(({ x, y }, options) => {
-        x = $atom(x);
+        x = V.atom(x);
         const { rotation = 0 } = options;
-        let { scale = 1, origin = { x: 0, y: 0 } } = options; scale = $atom(scale);
-        let [foo, bar] = options.array; foo = $atom(foo);
+        let { scale = 1, origin = { x: 0, y: 0 } } = options; scale = V.atom(scale);
+        let [foo, bar] = options.array; foo = V.atom(foo);
         return {
           rotation,
           moveX(distance) {
@@ -105,15 +105,15 @@ describe('valtio-kit', () => {
   test('return', async () => {
     const code = await transform('return.ts')
     expect(code).toMatchInlineSnapshot(`
-      "import { $atom, $unnest, $proxy } from '/@fs//path/to/valtio-kit/runtime.js'
+      "import * as V from '/@fs//path/to/valtio-kit/runtime.js'
       import { createClass } from "valtio-kit";
       export const Test = createClass(() => {
-        let a = $atom(0);
-        const b = $proxy({ a: a.value });
+        let a = V.atom(0);
+        const b = V.proxy({ a: a.value });
         return {
           a,
           b,
-          c: $unnest({
+          c: V.unnest({
             a,
             b,
             get d() {
@@ -138,10 +138,10 @@ describe('valtio-kit', () => {
   test('return arrow function', async () => {
     const code = await transform('return-arrow-function.ts')
     expect(code).toMatchInlineSnapshot(`
-      "import { $atom } from '/@fs//path/to/valtio-kit/runtime.js'
+      "import * as V from '/@fs//path/to/valtio-kit/runtime.js'
       import { createClass } from "valtio-kit";
       export const Counter = createClass(() => {
-        let status = $atom(null);
+        let status = V.atom(null);
         return () => ({
           status,
           setStatus(newStatus) {
@@ -159,11 +159,11 @@ describe('valtio-kit', () => {
   test('subscribe', async () => {
     const code = await transform('subscribe.ts')
     expect(code).toMatchInlineSnapshot(`
-      "import { subscribe, $atom, $proxy } from '/@fs//path/to/valtio-kit/runtime.js'
+      "import * as V from '/@fs//path/to/valtio-kit/runtime.js'
       import { createClass } from "valtio-kit";
       export const Test = createClass(() => {
-        let a = $atom(0);
-        const b = $proxy({ c: 1 });
+        let a = V.atom(0);
+        const b = V.proxy({ c: 1 });
         subscribe(a, () => {
           console.log("a changed to", a.value);
         });
@@ -179,13 +179,13 @@ describe('valtio-kit', () => {
   test('watch', async () => {
     const code = await transform('watch.ts')
     expect(code).toMatchInlineSnapshot(`
-      "import { $proxyMap, watch, $atom, $proxy } from '/@fs//path/to/valtio-kit/runtime.js'
+      "import * as V from '/@fs//path/to/valtio-kit/runtime.js'
       import { createClass } from "valtio-kit";
       export const Test = createClass(() => {
-        let a = $atom(0);
-        const b = $proxy({ c: { d: 1 } });
-        let array = $atom([]);
-        let map = /* @__PURE__ */ $atom($proxyMap());
+        let a = V.atom(0);
+        const b = V.proxy({ c: { d: 1 } });
+        let array = V.atom([]);
+        let map = /* @__PURE__ */ V.atom(V.proxyMap());
         watch(($get) => {
           $get(a).value;
           a.value++;
@@ -193,7 +193,7 @@ describe('valtio-kit', () => {
           $get(b).c.d;
           $get(b).c.d = 2;
           array.value = [2];
-          map.value = /* @__PURE__ */ $proxyMap();
+          map.value = /* @__PURE__ */ V.proxyMap();
           let innerVar = 1;
           innerVar = 2;
         });
@@ -206,20 +206,20 @@ describe('valtio-kit', () => {
   test('dynamic param', async () => {
     const code = await transform('dynamic-param.ts')
     expect(code).toMatchInlineSnapshot(`
-      "import { onUpdate, $atom } from '/@fs//path/to/valtio-kit/runtime.js'
+      "import * as V from '/@fs//path/to/valtio-kit/runtime.js'
       import { createClass } from "valtio-kit";
       export const Test1 = createClass((a, b = 0) => {
-        a = $atom(a);
+        a = V.atom(a);
         onUpdate((...args) => [a.value] = args);
         return {};
       }, "Test1");
       export const Test2 = createClass(({ a, b = 0 }) => {
-        a = $atom(a);
+        a = V.atom(a);
         onUpdate((...args) => ({ a: a.value } = args[0]));
         return {};
       }, "Test2");
       export const Test3 = createClass((a, b = 0) => {
-        a = $atom(a);
+        a = V.atom(a);
         onUpdate((...args) => {
           a.value = args[0];
         });
@@ -232,15 +232,15 @@ describe('valtio-kit', () => {
   test('computed', async () => {
     const code = await transform('computed.ts')
     expect(code).toMatchInlineSnapshot(`
-      "import { $unnest, computed, $assign } from '/@fs//path/to/valtio-kit/runtime.js'
+      "import * as V from '/@fs//path/to/valtio-kit/runtime.js'
       import { createClass, proxy } from "valtio-kit";
       export const Test = createClass((options) => {
         options = proxy(options);
-        const a = $unnest({
+        const a = V.unnest({
           b: computed(($get) => $get(options).b),
           c: 0
         });
-        $assign(a, "c", (($get) => $get(options).c));
+        V.assign(a, "c", (($get) => $get(options).c));
         const d = computed(($get) => $get(a).b + $get(a).c);
         return {
           a,
