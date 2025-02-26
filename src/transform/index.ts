@@ -450,7 +450,11 @@ export function transform(
       if (globalFunction) {
         let skipNamespacePrefix = false
 
-        if (globalFunction === 'watch' || globalFunction === 'computed') {
+        if (
+          globalFunction === 'computed' ||
+          globalFunction === 'watch' ||
+          globalFunction === 'when'
+        ) {
           // Throw if the first argument is not a function.
           const watchCallback = node.arguments[0]
           if (

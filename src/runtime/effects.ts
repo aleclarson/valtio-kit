@@ -108,3 +108,30 @@ export const on: AddEventListener = (
     }
   })
 }
+
+/**
+ * Run a callback when a reactive condition is truthy.
+ *
+ * Your callback may set up its own side effects, which will be cleaned up when the
+ * condition is no longer met.
+ */
+export function when(
+  predicate: () => boolean,
+  callback: () => void | Cleanup | Promise<void | Cleanup>
+) {
+  EffectScope.addSetupEffect(() => {
+    const shouldRun = predicate as (get: Function) => boolean
+    const scope = new EffectScope()
+
+    return utils.watch(get => {
+      let result: any
+      if (shouldRun(get)) {
+        result = scope.run(callback)
+        scope.autoSetup()
+      } else {
+        scope.autoCleanup()
+      }
+      return result
+    })
+  })
+}

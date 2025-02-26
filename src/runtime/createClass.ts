@@ -27,18 +27,15 @@ export function createClass<TFactory extends InstanceFactory>(
       constructor(...args: Parameters<TFactory>) {
         super()
 
-        const scope = new EffectScope()
-        scope.enter()
-        try {
-          var self = unnest(copyDescriptors(this, factory.apply(this, args)))
-        } finally {
-          scope.leave()
-        }
+        let self: typeof this
+        const scope = EffectScope.run(() => {
+          self = unnest(copyDescriptors(this, factory.apply(this, args)))
+        })
         Object.defineProperty(this, EffectScope.symbol, {
           value: scope,
         })
         scope.autoSetup()
-        return self
+        return self!
       }
     },
   }

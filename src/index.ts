@@ -18,6 +18,7 @@ export {
   subscribe,
   subscribeKey,
   watch,
+  when,
   type Cleanup,
 } from './runtime/effects'
 export { createEventTarget, EventTarget } from './runtime/eventTarget'
