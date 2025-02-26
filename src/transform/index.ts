@@ -154,6 +154,7 @@ export function transform(
     const unnestedProxies = new Set<string>()
     const watchCallbacks = new Set<TSESTree.Node>()
     const watchedIdentifiers = new Set<TSESTree.Identifier>()
+    const transformedScopes = new Set<BlockScope>()
 
     const isBeingWatched = (
       node: TSESTree.Identifier,
@@ -442,12 +443,62 @@ export function transform(
       }
     }
 
+    const handleWhileEffects = (node: TSESTree.CallExpression) => {
+      let scope = findClosestScope(node)
+
+      // Find root-level while loops that contain the call.
+      const whileScopes = new Set<BlockScope<TSESTree.WhileStatement>>()
+      while (scope) {
+        if (scope.node.type === T.WhileStatement) {
+          if (transformedScopes.has(scope)) {
+            break
+          }
+          whileScopes.add(scope as BlockScope<TSESTree.WhileStatement>)
+        } else {
+          if (isFunctionNode(scope.node)) {
+            whileScopes.clear()
+            break
+          }
+          if (isRootScope(scope)) {
+            break
+          }
+        }
+        scope = scope.parent
+      }
+
+      // Transform the while loops into `when()` calls.
+      for (const scope of whileScopes) {
+        transformedScopes.add(scope)
+
+        const { range, body } = scope.node
+
+        // Replace the "while" keyword.
+        result.overwrite(range[0], range[0] + 'while'.length, 'V.when(() =>')
+
+        // Wrap the body in a function.
+        const bodyRange = [...body.range]
+        if (code[bodyRange[0] - 1] === ' ') {
+          bodyRange[0]--
+        }
+        if (code[bodyRange[1] - 1] === ';') {
+          bodyRange[1]--
+        }
+        result.prependLeft(bodyRange[0], ', () =>')
+        result.appendLeft(bodyRange[1], ')')
+      }
+    }
+
     // Add imports for global functions being used.
     const handleGlobalFunctionCall = (node: TSESTree.CallExpression) => {
       const globalFunction = globalFunctions.find(name =>
         isGlobalCallTo(node, name)
       )
       if (globalFunction) {
+        // Does the callee create a side effect?
+        if (effectFunctions.includes(globalFunction)) {
+          handleWhileEffects(node)
+        }
+
         let skipNamespacePrefix = false
 
         if (
@@ -534,7 +585,7 @@ export function transform(
               }
 
               skipNamespacePrefix = true
-              result.prependLeft(node.parent.range[0], 'V.assign(' + prefix)
+              result.appendLeft(node.parent.range[0], 'V.assign(' + prefix)
               result.appendRight(node.parent.range[1], ')')
               break $computed
             }
@@ -731,18 +782,18 @@ const isAssignmentLeft = isNodeOfTypes([
   T.Identifier,
 ])
 
-const globalFunctions = [
+const effectFunctions = [
   'computed',
-  'getVersion',
   'on',
   'onMount',
   'onUpdate',
-  'ref',
-  'snapshot',
   'subscribe',
   'subscribeKey',
   'watch',
+  'when',
 ]
+
+const globalFunctions = [...effectFunctions, 'getVersion', 'ref', 'snapshot']
 
 function findClassConstructors(ast: TSESTree.Program) {
   const constructors: (
@@ -968,8 +1019,8 @@ function findBindingsInArray(
   }
 }
 
-type BlockScope = {
-  node: TSESTree.Node
+type BlockScope<TNode extends TSESTree.Node = TSESTree.Node> = {
+  node: TNode
   names: string[]
   parent: BlockScope | undefined
 }

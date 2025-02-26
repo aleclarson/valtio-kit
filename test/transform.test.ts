@@ -203,6 +203,33 @@ describe('valtio-kit', () => {
     `)
   })
 
+  test('while effects', async () => {
+    const code = await transform('while-effects.ts')
+    expect(code).toMatchInlineSnapshot(`
+      "import * as V from '/@fs//path/to/valtio-kit/runtime.js'
+      import { createClass } from "valtio-kit";
+      export const Test = createClass(() => {
+        const obj = V.proxy({ a: 0 });
+        let value = V.atom(0);
+        V.when(() => (value.value === 0), () => V.assign(obj, "a", (($get) => $get(value).value + 1)));
+        V.when(() => (value.value < 10), () => {
+          V.subscribe(obj.a, () => {
+          });
+          V.when(() => (value.value < 5), () => {
+            V.subscribe(obj.a, () => {
+            });
+          })
+        })
+        return {
+          increment() {
+            value.value++;
+          }
+        };
+      }, "Test");
+      "
+    `)
+  })
+
   test('dynamic param', async () => {
     const code = await transform('dynamic-param.ts')
     expect(code).toMatchInlineSnapshot(`
