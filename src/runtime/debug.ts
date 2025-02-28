@@ -298,10 +298,13 @@ function resolveEventInfo(
 
   const context: any = proxyObject[kDebugContext]
   if (context) {
-    // When a debug context exists, we know this is a reactive variable being
-    // updated. Slice out the `.value` part from the path and prepend the
+    // For atoms, slice out the `.value` part from the path and prepend the
     // variable's name (prefixed with `#` to indicate a private name).
-    path = ['#' + targetId, ...path.slice(1)]
+    if (isAtom(proxyObject)) {
+      path = ['#' + targetId, ...path.slice(1)]
+    } else {
+      path = [targetId, ...path]
+    }
 
     // Reset the target ID to the debug ID of the context. This allows a filter
     // to easily match anything related to a reactive instance (including public
