@@ -278,6 +278,29 @@ describe('valtio-kit', () => {
       "
     `)
   })
+
+  test('setDebugId in root scope', async () => {
+    const code = await transform('set-debug-id.ts')
+    expect(code).toMatchInlineSnapshot(`
+      "import * as V from '/@fs//path/to/valtio-kit/runtime.js'
+      import { createClass, proxy } from "valtio-kit";
+      import { setDebugId } from "valtio-kit/debug";
+      class Thing {
+        constructor() {
+          return proxy(this);
+        }
+      }
+      export const Test = createClass(() => {
+        const thing = new Thing();
+        setDebugId(thing, "thing", this);
+        setDebugId(thing);
+        return {
+          thing
+        };
+      }, "Test");
+      "
+    `)
+  })
 })
 
 async function transform(fixtureId: string, options: Options = {}) {

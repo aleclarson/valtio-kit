@@ -42,7 +42,7 @@ export function getDebugId(target: object) {
  * automatically. Arrays, maps, and sets don't have a debug ID unless you set
  * one manually.
  */
-export function setDebugId(target: object, debugId?: string) {
+export function setDebugId(target: object, debugId?: string, context?: any) {
   if (!debugId) {
     if (Object.prototype.hasOwnProperty.call(target, kDebugId)) {
       return
@@ -60,6 +60,12 @@ export function setDebugId(target: object, debugId?: string) {
     value: debugId,
     configurable: true,
   })
+  if (context) {
+    Object.defineProperty(target, kDebugContext, {
+      value: context,
+      configurable: true,
+    })
+  }
 }
 
 const { proxyCache, proxyStateMap } = unstable_getInternalStates()

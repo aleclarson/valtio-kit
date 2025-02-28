@@ -488,6 +488,15 @@ export function transform(
       }
     }
 
+    const handleSetDebugIdCall = (node: TSESTree.CallExpression) => {
+      if (hasCalleeNamed(node, 'setDebugId') && node.arguments.length === 2) {
+        const scope = findClosestScope(node)!
+        if (isRootScope(scope)) {
+          result.appendRight(node.arguments[1].range[1], ', this')
+        }
+      }
+    }
+
     // Add imports for global functions being used.
     const handleGlobalFunctionCall = (node: TSESTree.CallExpression) => {
       const globalFunction = globalFunctions.find(name =>
@@ -625,6 +634,8 @@ export function transform(
         if (!skipNamespacePrefix) {
           result.prependLeft(node.callee.range[0], 'V.')
         }
+      } else {
+        handleSetDebugIdCall(node)
       }
     }
 
@@ -1187,7 +1198,7 @@ function transformReactiveVariable(
       | TSESTree.ArrowFunctionExpression
       | TSESTree.FunctionExpression
 
-    // Dynamic parameters are re-assigned with `foo = $atom(foo)` at the start
+    // Dynamic parameters are re-assigned with `foo = V.atom(foo)` at the start
     // of the factory function body.
     if (factoryFunc.body.type === T.BlockStatement) {
       const name = variable.id.name
