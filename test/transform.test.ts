@@ -262,7 +262,7 @@ describe('valtio-kit', () => {
       "import * as V from '/@fs//path/to/valtio-kit/runtime.js'
       import { createClass, proxy } from "valtio-kit";
       export const Test = createClass((options) => {
-        options = proxy(options);
+        options = V.proxy(options);
         const a = V.unnest({
           b: V.computed(($get) => $get(options).b),
           c: 0

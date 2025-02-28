@@ -658,6 +658,9 @@ export function transform(
             return
           }
         }
+        // Use the `V.proxy` function to avoid issues when the argument is
+        // already a reactive proxy.
+        result.appendRight(right.range[0], 'V.')
         proxies.set(left.name, right)
       }
     }
