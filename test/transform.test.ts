@@ -76,6 +76,38 @@ describe('valtio-kit', () => {
     `)
   })
 
+  test('property assignment', async () => {
+    const code = await transform('property-assignment.ts')
+    expect(code).toMatchInlineSnapshot(`
+      "import * as V from '/@fs//path/to/valtio-kit/runtime.js'
+      import { createClass, proxy } from "valtio-kit";
+      class Thing {
+        constructor(options) {
+          this.options = options;
+          return proxy(this);
+        }
+        foo = 1;
+      }
+      export const Test = createClass(() => {
+        const thing = new Thing({});
+        const thing2 = V.proxy(new Thing({}));
+        const obj = V.proxy({ b: 0 });
+        const obj2 = V.proxy({ x: 0 });
+        obj2.x++;
+        return {
+          thing,
+          doSomething() {
+            thing.foo = 2;
+            obj.b++;
+          },
+          // Expect \`thing.foo\` to not be observed.
+          blah: V.computed(($get) => thing.foo + $get(thing2).foo + $get(obj).b)
+        };
+      }, "Test");
+      "
+    `)
+  })
+
   test('destructured variable', async () => {
     const code = await transform('destructured-variable.ts')
     expect(code).toMatchInlineSnapshot(`

@@ -328,6 +328,7 @@ export function transform(
           parent.type === T.Property ||
           parent.type === T.ArrayExpression ||
           parent.type === T.VariableDeclarator ||
+          parent.type === T.NewExpression ||
           parent.type === T.CallExpression,
         scope.node
       )
