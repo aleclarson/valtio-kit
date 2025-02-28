@@ -51,7 +51,6 @@ export function valtioKit(options: Options = {}): Plugin {
         this.environment.config.mode !== 'production' &&
         /\/valtio\/esm\/vanilla.mjs\b/.test(id)
       ) {
-        console.log('Applying debug transform to Valtio...')
         const { applyDebugTransform } = await import('../transform/debug')
         return applyDebugTransform(code)
       }
