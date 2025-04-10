@@ -11,6 +11,7 @@ declare module 'valtio-kit' {
 
 addClassExtension(constructor => {
   const Context = React.createContext<any>(null)
+  Context.displayName = constructor.name
   constructor.Context = Context
   constructor.Provider = Context.Provider
 })
