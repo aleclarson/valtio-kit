@@ -9,6 +9,8 @@ export { computed } from './runtime/computed'
 export {
   addClassExtension,
   createClass,
+  type ConstructorOptions,
+  type PartialConstructorOptions,
   type ReactiveClass,
 } from './runtime/createClass'
 export {

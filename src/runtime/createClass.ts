@@ -83,3 +83,26 @@ export declare namespace ReactiveClass {
 export function addClassExtension(extension: ReactiveClass.Extension) {
   classExtensions.push(extension)
 }
+
+/**
+ * Extract the first object parameter from the constructor parameters.
+ */
+export type ConstructorOptions<T extends abstract new (...args: any) => any> =
+  ConstructorParameters<T> extends infer P extends any[]
+    ? FindFirstObjectParam<P>
+    : never
+
+/**
+ * Extract the first object parameter from the constructor parameters and make
+ * it partial. Useful for forwarding options to the constructor.
+ */
+export type PartialConstructorOptions<
+  T extends abstract new (...args: any) => any,
+> = Partial<ConstructorOptions<T>>
+
+type FindFirstObjectParam<T extends any[]> = //
+  T extends [infer First extends object, ...any[]]
+    ? First
+    : T extends [any, ...infer Rest]
+      ? FindFirstObjectParam<Rest>
+      : Record<string, never>
