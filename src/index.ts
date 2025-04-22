@@ -25,6 +25,7 @@ export {
   type Cleanup,
 } from './runtime/effects'
 export { createEventTarget, EventTarget } from './runtime/eventTarget'
+export type { AddEventListener } from './runtime/eventTypes'
 export {
   ReactiveInstance,
   type InstanceFactory,

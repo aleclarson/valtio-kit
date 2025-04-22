@@ -102,7 +102,7 @@ export function subscribeKey<T extends object, K extends keyof T>(
  *
  * The listener will be cleaned up when the component unmounts.
  */
-export const on: AddEventListener = (
+export const on: AddEventListener<void> = (
   target: EventTarget,
   event: string,
   callback: (event: any) => any,
