@@ -8,7 +8,11 @@ export default defineConfig([
     dts: true,
   },
   {
-    entry: ['src/vite/plugin.ts', 'src/transform/index.ts'],
+    entry: [
+      'src/transform/index.ts',
+      'src/vite/plugin.ts',
+      'src/web-test-runner/plugin.ts',
+    ],
     tsconfig: 'src/transform/tsconfig.json',
     format: ['esm'],
     dts: true,

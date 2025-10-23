@@ -16,6 +16,10 @@
       "types": "./dist/vite/plugin.d.ts",
       "default": "./dist/vite/plugin.js"
     },
+    "./web-test-runner": {
+      "types": "./dist/web-test-runner/plugin.d.ts",
+      "default": "./dist/web-test-runner/plugin.js"
+    },
     "./transform": {
       "types": "./dist/transform/index.d.ts",
       "default": "./dist/transform/index.js"
@@ -61,6 +65,7 @@
     "@testing-library/user-event": "^14.5.2",
     "@types/node": "^22.10.5",
     "@types/react": "^19.0.3",
+    "@web/test-runner": "^0.20.2",
     "git-cliff": "^2.7.0",
     "jsdom": "^25.0.1",
     "prettier": "^3.4.2",
@@ -85,10 +90,17 @@
   "peerDependencies": {
     "react": "*",
     "valtio": "*",
-    "vite": "*"
+    "vite": "*",
+    "web-test-runner": "*"
   },
   "peerDependenciesMeta": {
     "react": {
+      "optional": true
+    },
+    "vite": {
+      "optional": true
+    },
+    "web-test-runner": {
       "optional": true
     }
   }
