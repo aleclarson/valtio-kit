@@ -89,7 +89,11 @@ export function applyDebugTransform(code: string) {
         if (typeof prop === 'symbol') {
           return value
         }
-        if (typeof value === 'function' && prop !== 'constructor') {
+        if (
+          typeof value === 'function' &&
+          (props[0] < 'A' || props[0] > 'Z') &&
+          prop !== 'constructor'
+        ) {
           return function(...args) {
             globalThis.valtioHook('call', value, baseObject, args)
             try {
