@@ -91,7 +91,7 @@ export function applyDebugTransform(code: string) {
         }
         if (
           typeof value === 'function' &&
-          (props[0] < 'A' || props[0] > 'Z') &&
+          (prop[0] < 'A' || prop[0] > 'Z') &&
           prop !== 'constructor'
         ) {
           return function(...args) {
