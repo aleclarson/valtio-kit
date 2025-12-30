@@ -59,12 +59,12 @@ export function createEventTarget<TEvents extends object>() {
   function removeEventListener<TEventKey extends keyof TEvents>(
     key: TEventKey,
     listener: EventListener<TEventKey>,
-    options?: boolean | EventListenerOptions
+    _options?: boolean | EventListenerOptions
   ) {
     const state = listenerState.get(key)
     if (state) {
-      const options = state.optionsMap.get(listener)!
-      options.signal?.removeEventListener('abort', options.abortHandler!)
+      const options = state.optionsMap.get(listener)
+      options?.signal?.removeEventListener('abort', options.abortHandler!)
 
       state.listeners.delete(listener)
       state.optionsMap.delete(listener)
