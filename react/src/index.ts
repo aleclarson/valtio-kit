@@ -15,9 +15,7 @@ setAllowAutoSetup(() => {
     const ReactCurrentDispatcher = ReactSharedInternals.H
     return (
       ReactCurrentDispatcher === null ||
-      ReactCurrentDispatcher.useCallback
-        .toString()
-        .includes('Invalid hook call')
+      ReactCurrentDispatcher.useCallback.toString().includes('throw Error')
     )
   }
 
