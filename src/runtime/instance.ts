@@ -28,7 +28,7 @@ export type InstanceFactory<TState extends InstanceState = InstanceState> = (
  * are destroyed when it goes out of scope.
  */
 export abstract class ReactiveInstance<TFactory extends InstanceFactory> {
-  // Does not exist at runtime.
+  /** Does not exist at runtime. */
   declare protected $data: TFactory extends InstanceFactory<infer TState>
     ? TState
     : never
@@ -64,6 +64,7 @@ export abstract class ReactiveInstance<TFactory extends InstanceFactory> {
 export type ReactiveProxy<T> =
   T extends InstanceFactory<infer TState>
     ? ReactiveInstance<T> & Readonly<Omit<TState, keyof InstanceState>>
-    : T extends ReactiveInstance<infer TFactory>
-      ? ReactiveProxy<TFactory>
+    : T extends ReactiveInstance<any>
+      ? // @ts-ignore
+        T & Readonly<Omit<T['$data'], keyof InstanceState>>
       : never

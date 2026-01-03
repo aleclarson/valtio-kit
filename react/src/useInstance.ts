@@ -29,19 +29,19 @@ export function useInstance<TFactory extends InstanceFactory>(
  * Create a new instance, using a dependency array for greater control over when
  * the instance should be re-created.
  */
-export function useInstance<TFactory extends InstanceFactory>(
-  create: () => ReactiveInstance<TFactory>,
+export function useInstance<T extends ReactiveInstance<any>>(
+  create: () => T,
   deps: readonly any[]
-): ReactiveProxy<TFactory>
+): ReactiveProxy<T>
 
 /**
  * Create a new instance, using a dependency array for greater control over when
  * the instance should be re-created.
  */
-export function useInstance<TFactory extends InstanceFactory>(
-  create: () => ReactiveInstance<TFactory> | null,
+export function useInstance<T extends ReactiveInstance<any>>(
+  create: () => T | null,
   deps: readonly any[]
-): ReactiveProxy<TFactory> | null
+): ReactiveProxy<T> | null
 
 export function useInstance(
   fn:
