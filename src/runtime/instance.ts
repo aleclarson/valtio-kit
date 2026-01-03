@@ -58,10 +58,12 @@ export abstract class ReactiveInstance<TFactory extends InstanceFactory> {
 }
 
 /**
- * A reactive object returned by a `createClass` factory.
+ * A reactive object returned by a `createClass` factory. Its state is protected
+ * from outside modification.
  */
-export type ReactiveProxy<TFactory extends InstanceFactory> =
-  ReactiveInstance<TFactory> &
-    (TFactory extends InstanceFactory<infer TState>
-      ? Readonly<Omit<TState, keyof InstanceState>>
-      : never)
+export type ReactiveProxy<T> =
+  T extends InstanceFactory<infer TState>
+    ? ReactiveInstance<T> & Readonly<Omit<TState, keyof InstanceState>>
+    : T extends ReactiveInstance<infer TFactory>
+      ? ReactiveProxy<TFactory>
+      : never
