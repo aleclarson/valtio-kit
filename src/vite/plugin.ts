@@ -42,6 +42,19 @@ export function valtioKit(options: Options = {}): Plugin {
       resolve: {
         dedupe: ['valtio', 'valtio-kit'],
       },
+      build: {
+        rollupOptions: {
+          onwarn(warning, warn) {
+            if (
+              warning.code === 'UNUSED_EXTERNAL_IMPORT' &&
+              warning.export === 'computed'
+            ) {
+              return
+            }
+            warn(warning)
+          }
+        }
+      },
       optimizeDeps: {
         exclude: ['valtio', 'valtio-kit', runtimePath],
       },
